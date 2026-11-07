@@ -156,6 +156,10 @@ public class WordActivity extends Activity {
         root.addView(U.spacer(this, 12));
         root.addView(statusCard(c));
 
+        // 跟读
+        root.addView(U.spacer(this, 12));
+        root.addView(RepeatCard.build(this, e == null ? word : e.word));
+
         sv.addView(root);
         setContentView(sv);
         refreshStar();

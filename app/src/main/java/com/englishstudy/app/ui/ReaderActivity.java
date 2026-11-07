@@ -64,17 +64,37 @@ public class ReaderActivity extends Activity {
             }
             root.addView(U.spacer(this, 14));
 
+            LinearLayout tools = U.row(this);
+            TextView all = U.ghostButton(this, "🔊 通读一遍", getColor(R.color.primary));
+            all.setOnClickListener(v -> Tts.say(this, ps.text));
+            tools.addView(all, U.weight(1));
+            root.addView(tools);
+            root.addView(U.spacer(this, 12));
+
             LinearLayout card = U.card(this);
             for (String s : ps.sentences()) {
                 String t = s.trim();
                 if (t.isEmpty()) continue;
+                final String sentence = t;
+
+                LinearLayout line = U.row(this);
+                line.setGravity(android.view.Gravity.TOP);
+                line.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
+
+                TextView spk = U.tv(this, "🔊", 14, getColor(R.color.text_dim2));
+                spk.setPadding(0, U.px(this, 3), U.px(this, 8), 0);
+                spk.setOnClickListener(v -> Tts.say(this, sentence));
+                line.addView(spk);
+
                 TextView tv = new TextView(this);
                 tv.setTextSize(16);
                 tv.setLineSpacing(U.dp(this, 7), 1f);
                 tv.setTextColor(getColor(R.color.text));
                 tv.setText(buildSpans(t));
-                tv.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
-                card.addView(tv);
+                tv.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+                line.addView(tv, U.weight(1));
+
+                card.addView(line);
             }
             root.addView(card);
         }

@@ -1,68 +1,61 @@
 package com.englishstudy.app.ui;
 
 import android.app.Activity;
-import android.speech.tts.TextToSpeech;
-import android.util.Log;
+import android.content.Context;
 
-import java.util.Locale;
+import com.englishstudy.app.voice.OfflineTtsEngine;
 
 /**
  * 朗读门面。
  *
- * 当前用系统离线 TTS（任何设备都有，零下载）。
- * 若离线 VITS 模型就绪，由 OfflineTtsEngine 接管（后续接入点）。
+ * 优先走本地 VITS 模型（sherpa-onnx，完全离线、音色自然）；
+ * 模型未下载时 OfflineTtsEngine 内部自动降级到系统 TTS（同样离线）。
+ * 调用方只认 say / setRate / stop 三个口子。
  */
 public final class Tts {
 
-    private static TextToSpeech engine;
-    private static boolean ready;
-    private static float rate = 0.92f;
+    private static boolean inited;
 
     private Tts() {
     }
 
     public static void init(Activity a) {
-        if (engine != null) return;
-        engine = new TextToSpeech(a.getApplicationContext(), status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                int r = engine.setLanguage(Locale.US);
-                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.w("Tts", "US English not available");
-                }
-                engine.setSpeechRate(rate);
-                ready = true;
-            }
-        });
+        init((Context) a);
+    }
+
+    public static void init(Context c) {
+        if (inited) return;
+        inited = true;
+        OfflineTtsEngine.setRate(com.englishstudy.app.data.Store.getInt("rate", 92) / 100f);
+        OfflineTtsEngine.init(c.getApplicationContext());
     }
 
     public static void setRate(float r) {
-        rate = Math.max(0.5f, Math.min(1.6f, r));
-        if (engine != null && ready) engine.setSpeechRate(rate);
+        OfflineTtsEngine.setRate(r);
     }
 
     public static void say(Activity a, String text) {
         if (text == null || text.trim().isEmpty()) return;
-        if (engine == null) init(a);
-        if (engine == null) return;
-        if (!ready) {
-            final String t = text;
-            a.runOnUiThread(() -> a.getWindow().getDecorView().postDelayed(
-                    () -> say(a, t), 300));
-            return;
-        }
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "es");
+        init(a);
+        OfflineTtsEngine.say(a.getApplicationContext(), text);
+    }
+
+    /** 指定语速朗读（跟读练习用：0.7 慢速 / 1.0 正常）。 */
+    public static void say(Activity a, String text, float rate) {
+        if (text == null || text.trim().isEmpty()) return;
+        init(a);
+        float old = OfflineTtsEngine.rate();
+        OfflineTtsEngine.setRate(rate);
+        OfflineTtsEngine.say(a.getApplicationContext(), text);
+        OfflineTtsEngine.setRate(old);
     }
 
     public static void stop() {
-        if (engine != null) engine.stop();
+        OfflineTtsEngine.stop();
     }
 
     public static void shutdown() {
-        if (engine != null) {
-            engine.stop();
-            engine.shutdown();
-            engine = null;
-            ready = false;
-        }
+        OfflineTtsEngine.shutdown();
+        inited = false;
     }
 }

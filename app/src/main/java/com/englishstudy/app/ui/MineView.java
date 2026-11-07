@@ -40,6 +40,8 @@ public class MineView {
 
         root.addView(statsCard());
         root.addView(U.spacer(a, 14));
+        root.addView(VoiceCard.build(a));
+        root.addView(U.spacer(a, 14));
         root.addView(settingsCard());
         root.addView(U.spacer(a, 14));
         root.addView(dataCard());

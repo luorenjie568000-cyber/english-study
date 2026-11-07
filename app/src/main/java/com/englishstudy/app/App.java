@@ -4,9 +4,21 @@ import android.app.Application;
 import android.content.Context;
 
 import com.englishstudy.app.data.Dict;
+import com.englishstudy.app.data.Scenes;
 import com.englishstudy.app.data.Vocab;
+import com.englishstudy.app.voice.OfflineAsrEngine;
+import com.englishstudy.app.voice.OfflineTtsEngine;
+import com.englishstudy.app.voice.ModelRepo;
 
-/** 全局入口：词典后台加载，生词本常驻内存。 */
+import java.io.File;
+import java.io.PrintWriter;
+
+/**
+ * 全局入口：词典后台加载，生词本常驻内存。
+ *
+ * 自检开关：filesDir 下放 selftest.on 文件才跑全量自检，
+ * 结果写 selftest.txt / voice-diag.txt，方便无界面验证。
+ */
 public class App extends Application {
 
     private static App sInst;
@@ -19,66 +31,155 @@ public class App extends Application {
         return sInst;
     }
 
-    /** 启动自检：跑一遍批改与翻译，把结果写文件，便于无 UI 验证。 */
+    private boolean selfTestEnabled() {
+        return new File(getFilesDir(), "selftest.on").exists();
+    }
+
+    // ---------------------------------------------------------------- 文本类自检
+
     private void selfTest() {
+        StringBuilder sb = new StringBuilder();
         try {
+            sb.append("== writing ==\n");
             String sample = "Yesterday I go to a coffee shop near my home. I very like the quite place. "
                     + "Although it was crowded, but I found a seat. The waiter was very frienly. "
                     + "i will go there again.";
             com.englishstudy.app.engine.WritingChecker.Result r =
                     com.englishstudy.app.engine.WritingChecker.check(sample);
-
-            java.io.PrintWriter w = new java.io.PrintWriter(
-                    new java.io.File(getFilesDir(), "selftest.txt"), "UTF-8");
-            w.println("== writing ==");
-            w.println("score=" + r.score);
-            w.println("verdict=" + r.verdict);
-            w.println("words=" + r.words + " sentences=" + r.sentences + " avg=" + r.avgLen);
-            w.println("issues=" + r.issues.size());
+            sb.append("score=").append(r.score).append('\n');
+            sb.append("verdict=").append(r.verdict).append('\n');
+            sb.append("words=").append(r.words).append(" sentences=").append(r.sentences)
+                    .append(" avg=").append(r.avgLen).append('\n');
+            sb.append("issues=").append(r.issues.size()).append('\n');
             for (com.englishstudy.app.engine.WritingChecker.Issue it : r.issues) {
-                w.println(it.type + "|" + it.snippet + "|" + it.hint);
+                sb.append(it.type).append('|').append(it.snippet).append('|')
+                        .append(it.hint).append('\n');
             }
 
+            // 干净文本不该被误报
+            com.englishstudy.app.engine.WritingChecker.Result clean =
+                    com.englishstudy.app.engine.WritingChecker.check(
+                            "The weather is really nice today, so I walked to the park.");
+            sb.append("clean.score=").append(clean.score)
+                    .append(" clean.issues=").append(clean.issues.size()).append('\n');
+
+            sb.append("== translate ==\n");
             com.englishstudy.app.data.Translate.load(this);
-            w.println("== translate ==");
-            w.println("pairs=" + com.englishstudy.app.data.Translate.pairCount());
+            sb.append("pairs=").append(com.englishstudy.app.data.Translate.pairCount()).append('\n');
             com.englishstudy.app.data.Translate.Result t1 =
                     com.englishstudy.app.data.Translate.translate(
                             "The best way to predict the future is to create it yourself.");
-            w.println("t1.exact=" + t1.exact + " t1=" + t1.translation);
-            com.englishstudy.app.data.Translate.Result t2 =
-                    com.englishstudy.app.data.Translate.translate(
-                            "My neighbour bought a curious gadget yesterday.");
-            w.println("t2.hasTranslation=" + t2.hasTranslation()
-                    + " t2.words=" + t2.words.size());
-            StringBuilder sb = new StringBuilder();
-            for (com.englishstudy.app.data.Translate.Word wd : t2.words) {
-                sb.append(wd.text).append(':').append(wd.pos).append('=').append(wd.def).append("  ");
-            }
-            w.println("t2.detail=" + sb);
+            sb.append("t1.exact=").append(t1.exact).append(" t1=").append(t1.translation).append('\n');
 
-            w.println("== dict ==");
-            w.println("size=" + com.englishstudy.app.data.Dict.size());
-            com.englishstudy.app.data.Dict.Entry e =
-                    com.englishstudy.app.data.Dict.lookup("gave");
-            w.println("gave->" + (e == null ? "null" : e.word + " ipa=" + e.displayIpa()));
+            sb.append("== dict ==\n");
+            sb.append("size=").append(Dict.size()).append('\n');
+            Dict.Entry e = Dict.lookup("gave");
+            sb.append("gave->").append(e == null ? "null" : e.word + " ipa=" + e.displayIpa())
+                    .append('\n');
 
+            sb.append("== sentences ==\n");
             com.englishstudy.app.data.Sentences.load(this);
-            w.println("== sentences ==");
-            w.println("words=" + com.englishstudy.app.data.Sentences.wordCount());
-            java.util.List<String> ex = com.englishstudy.app.data.Sentences.of("give");
-            w.println("give.examples=" + ex.size());
-            for (String x : ex) w.println("  " + x);
+            sb.append("words=").append(com.englishstudy.app.data.Sentences.wordCount()).append('\n');
+            sb.append("give.examples=")
+                    .append(com.englishstudy.app.data.Sentences.of("give").size()).append('\n');
 
-            w.close();
+            sb.append("== scenes ==\n");
+            int lines = 0;
+            for (Scenes.Scene s : Scenes.all()) lines += s.lines.size();
+            sb.append("scenes=").append(Scenes.all().size())
+                    .append(" lines=").append(lines)
+                    .append(" shadow_sets=").append(Scenes.SHADOW.length).append('\n');
+            sb.append("shadow.first=").append(Scenes.SHADOW[0][1]).append('\n');
+
+            sb.append("== scoring ==\n");
+            String tgt = "The weather is really nice today.";
+            sb.append("same=").append(OfflineAsrEngine.score(tgt, tgt)).append('\n');
+            sb.append("near=").append(OfflineAsrEngine.score(tgt,
+                    "the weather is really nice today")).append('\n');
+            sb.append("half=").append(OfflineAsrEngine.score(tgt,
+                    "the weather is nice")).append('\n');
+            sb.append("junk=").append(OfflineAsrEngine.score(tgt, "banana")).append('\n');
         } catch (Throwable e) {
-            try {
-                java.io.PrintWriter w = new java.io.PrintWriter(
-                        new java.io.File(getFilesDir(), "selftest.txt"), "UTF-8");
-                w.println("ERROR " + e.getClass().getName() + ": " + e.getMessage());
-                w.close();
-            } catch (Throwable ignored) {
+            sb.append("ERROR ").append(e.getClass().getName()).append(": ")
+                    .append(e.getMessage()).append('\n');
+        }
+        write("selftest.txt", sb.toString());
+    }
+
+    // ---------------------------------------------------------------- 语音自检
+
+    private void voiceSelfTest() {
+        StringBuilder sb = new StringBuilder();
+        try {
+            boolean esp = ModelRepo.ensureEspeak(this);
+            sb.append("espeak=").append(esp).append('\n');
+            File espDir = ModelRepo.espeakDir(this);
+            sb.append("espeak.files=").append(countFiles(espDir)).append('\n');
+
+            for (ModelRepo.Pack p : ModelRepo.all()) {
+                sb.append("pack.").append(p.id).append(".ready=")
+                        .append(ModelRepo.ready(this, p)).append('\n');
             }
+
+            OfflineTtsEngine.init(this);
+            OfflineAsrEngine.init(this);
+
+            long t0 = System.currentTimeMillis();
+            while (System.currentTimeMillis() - t0 < 60000) {
+                if (OfflineTtsEngine.ready() || OfflineTtsEngine.unavailable()) break;
+                Thread.sleep(300);
+            }
+            sb.append("tts.ready=").append(OfflineTtsEngine.ready())
+                    .append(" tts.failed=").append(OfflineTtsEngine.unavailable()).append('\n');
+
+            t0 = System.currentTimeMillis();
+            while (System.currentTimeMillis() - t0 < 60000) {
+                if (OfflineAsrEngine.ready() || OfflineAsrEngine.unavailable()) break;
+                Thread.sleep(300);
+            }
+            sb.append("asr.ready=").append(OfflineAsrEngine.ready())
+                    .append(" asr.pack=").append(OfflineAsrEngine.loadedPack()).append('\n');
+
+            String wav = OfflineTtsEngine.probe("The weather is really nice today.");
+            sb.append("tts.probe=").append(wav).append('\n');
+
+            // 闭环：合成 → 回灌识别 → 打分。证明发音与听音两端都真在工作
+            String[] phrases = {
+                    "The weather is really nice today.",
+                    "Can I have a cup of coffee, please?",
+                    "I usually take the bus to work."
+            };
+            for (String ph : phrases) {
+                float[] pcm = OfflineTtsEngine.probeSamples(ph);
+                if (pcm == null) {
+                    sb.append("loop[").append(ph).append("]=no-pcm\n");
+                    continue;
+                }
+                String heard = OfflineAsrEngine.recognize(pcm, 16000);
+                sb.append("loop[").append(ph).append("]=").append(heard)
+                        .append(" score=").append(OfflineAsrEngine.score(ph, heard)).append('\n');
+            }
+        } catch (Throwable e) {
+            sb.append("ERROR ").append(e.getClass().getName()).append(": ")
+                    .append(e.getMessage()).append('\n');
+        }
+        write("voice-diag.txt", sb.toString());
+    }
+
+    private int countFiles(File dir) {
+        File[] fs = dir.listFiles();
+        if (fs == null) return 0;
+        int n = 0;
+        for (File f : fs) n += f.isDirectory() ? countFiles(f) : 1;
+        return n;
+    }
+
+    private void write(String name, String content) {
+        try {
+            PrintWriter w = new PrintWriter(new File(getFilesDir(), name), "UTF-8");
+            w.print(content);
+            w.close();
+        } catch (Throwable ignored) {
         }
     }
 
@@ -87,9 +188,11 @@ public class App extends Application {
         super.onCreate();
         sInst = this;
         Vocab.init(this);
+        final boolean st = selfTestEnabled();
         new Thread(() -> {
             Dict.load(this);
-            selfTest();
+            if (st) selfTest();
         }, "loader").start();
+        if (st) new Thread(this::voiceSelfTest, "voice-diag").start();
     }
 }

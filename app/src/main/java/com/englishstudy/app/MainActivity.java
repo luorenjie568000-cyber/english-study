@@ -17,17 +17,21 @@ import com.englishstudy.app.data.Translate;
 import com.englishstudy.app.data.Vocab;
 import com.englishstudy.app.ui.HomeView;
 import com.englishstudy.app.ui.ReadView;
+import com.englishstudy.app.ui.SpeakView;
 import com.englishstudy.app.ui.TransView;
+import com.englishstudy.app.ui.Tts;
 import com.englishstudy.app.ui.U;
 import com.englishstudy.app.ui.VocabView;
 import com.englishstudy.app.ui.WriteView;
 import com.englishstudy.app.ui.IpaView;
 import com.englishstudy.app.ui.MineView;
+import com.englishstudy.app.voice.OfflineAsrEngine;
+import com.englishstudy.app.voice.OfflineTtsEngine;
 
 /** 主界面：底部标签，内容区用原生 View 切换。 */
 public class MainActivity extends Activity {
 
-    public static final String[] TABS = {"学习", "词汇", "翻译", "写作", "音标", "阅读", "我的"};
+    public static final String[] TABS = {"学习", "口语", "词汇", "翻译", "写作", "音标", "阅读", "我的"};
 
     private FrameLayout content;
     private LinearLayout bar;
@@ -69,6 +73,12 @@ public class MainActivity extends Activity {
         setContentView(root);
         select(0);
 
+        // 语音引擎预热：模型在盘上就直接加载，不必等用户进「我的」页
+        Tts.init(this);
+        new Thread(() -> {
+            OfflineAsrEngine.init(this);
+        }, "asr-warm").start();
+
         // 词典/例句/翻译语料后台加载，加载完刷新一次
         new Thread(() -> {
             Dict.load(this);
@@ -95,14 +105,16 @@ public class MainActivity extends Activity {
             case 0:
                 return new HomeView(this).build();
             case 1:
-                return new VocabView(this).build();
+                return new SpeakView(this).build();
             case 2:
-                return new TransView(this).build();
+                return new VocabView(this).build();
             case 3:
-                return new WriteView(this).build();
+                return new TransView(this).build();
             case 4:
-                return new IpaView(this).build();
+                return new WriteView(this).build();
             case 5:
+                return new IpaView(this).build();
+            case 6:
                 return new ReadView(this).build();
             default:
                 return new MineView(this).build();
