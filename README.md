@@ -76,3 +76,12 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 ## 许可
 
 代码 MIT。词库/例句/翻译语料遵循各自上游许可（ECDICT MIT、Tatoeba CC-BY 2.0 FR）。
+
+## 更新记录
+
+### v4.0（2026-11-07）
+- 离线语音全链路打通：VITS TTS（Amy/Lessac）+ NeMo CTC / Whisper ASR + espeak-ng 内置
+- 新增「口语」页：跟读打分（12 句三档 + 自定义）、8 个场景对话（34 轮 NPC + 关键词评分）
+- 单词详情页加跟读练习，阅读页每句可单独朗读 + 整篇通读
+- 修复：播放被截断（等 playback head）、renameTo 静默失败、释义字面量 \n、评分栏被挤出屏幕、选句重置滚动、Whisper [BLANK_AUDIO] 占位、语速异步失效
+- 新启动图标，版本号 400/4.0
