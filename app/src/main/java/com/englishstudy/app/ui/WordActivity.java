@@ -158,7 +158,9 @@ public class WordActivity extends Activity {
 
         // 跟读
         root.addView(U.spacer(this, 12));
-        root.addView(RepeatCard.build(this, e == null ? word : e.word));
+        String repeatTarget = e == null ? word : e.word;
+        if (!ex.isEmpty()) repeatTarget = ex.get(0);
+        root.addView(RepeatCard.build(this, repeatTarget));
 
         sv.addView(root);
         setContentView(sv);

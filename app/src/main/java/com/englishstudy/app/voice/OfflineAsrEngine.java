@@ -191,6 +191,7 @@ public final class OfflineAsrEngine {
 
         List<short[]> chunks = new ArrayList<>();
         int totalSamples = 0;
+        float maxRms = 0;
         short[] buf = new short[1600]; // 100ms
         int silenceRun = 0;
         long started = System.currentTimeMillis();
@@ -208,6 +209,7 @@ public final class OfflineAsrEngine {
                 double sum = 0;
                 for (int i = 0; i < n; i++) sum += (double) buf[i] * buf[i];
                 float rms = (float) Math.sqrt(sum / n) / 32768f;
+                if (rms > maxRms) maxRms = rms;
                 final float lvl = Math.min(1f, rms * 8f);
                 post(cb, () -> cb.onLevel(lvl));
 
@@ -230,9 +232,12 @@ public final class OfflineAsrEngine {
         }
 
         if (totalSamples < SR / 5) {
+            diag("listen short samples=" + totalSamples + " maxRms=" + maxRms);
             post(cb, () -> cb.onResult(""));
             return;
         }
+        diag("listen done samples=" + totalSamples + " maxRms=" + maxRms
+                + " ms=" + (System.currentTimeMillis() - started));
 
         float[] pcm = new float[totalSamples];
         int off = 0;
@@ -256,8 +261,21 @@ public final class OfflineAsrEngine {
         post(cb, () -> cb.onResult(out));
     }
 
-    private static void post(Callback cb, Runnable r) {
-        if (cb == null) return;
+    /** 录音诊断日志，写 files/asr-diag.txt（追加）。 */
+    private static void diag(String line) {
+        try {
+            Context c = com.englishstudy.app.App.ctx();
+            if (c == null) return;
+            java.io.File f = new java.io.File(c.getFilesDir(), "asr-diag.txt");
+            if (f.length() > 20000) f.delete();
+            java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(f, true));
+            w.println(System.currentTimeMillis() % 100000 + " " + line);
+            w.close();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void post(Callback cb, Runnable r) {        if (cb == null) return;
         MAIN.post(r);
     }
 
