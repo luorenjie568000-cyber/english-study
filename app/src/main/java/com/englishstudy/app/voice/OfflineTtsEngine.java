@@ -129,13 +129,19 @@ public final class OfflineTtsEngine {
     // ------------------------------------------------------------ 朗读
 
     public static void say(Context c, String text) {
+        say(c, text, rate);
+    }
+
+    /** 指定语速朗读；语速在合成任务内部生效，不受调用方后续改动影响。 */
+    public static void say(Context c, String text, float useRate) {
         if (text == null) return;
         String t = text.trim();
         if (t.isEmpty()) return;
+        final float r = Math.max(0.5f, Math.min(1.6f, useRate));
         final Context app = c.getApplicationContext();
         if (tts == null) {
             init(app);
-            diag("say text=" + t.length() + "ch engine=sys");
+            diag("say text=" + t.length() + "ch engine=sys rate=" + r);
             sysSay(app, t);
             return;
         }
@@ -144,7 +150,7 @@ public final class OfflineTtsEngine {
         POOL.execute(() -> {
             try {
                 long t0 = System.currentTimeMillis();
-                GeneratedAudio audio = tts.generate(t, 0, 1.0f / Math.max(0.5f, rate));
+                GeneratedAudio audio = tts.generate(t, 0, 1.0f / r);
                 if (audio == null) {
                     diag("say gen=null");
                     return;
@@ -153,7 +159,7 @@ public final class OfflineTtsEngine {
                 int sr = audio.getSampleRate();
                 if (samples != null && samples.length > 0 && speaking.get()) {
                     diag("say gen ok samples=" + samples.length + " sr=" + sr
-                            + " synth=" + (System.currentTimeMillis() - t0) + "ms");
+                            + " rate=" + r + " synth=" + (System.currentTimeMillis() - t0) + "ms");
                     play(samples, sr);
                 }
             } catch (Throwable e) {

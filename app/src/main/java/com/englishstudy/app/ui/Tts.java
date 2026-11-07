@@ -44,10 +44,7 @@ public final class Tts {
     public static void say(Activity a, String text, float rate) {
         if (text == null || text.trim().isEmpty()) return;
         init(a);
-        float old = OfflineTtsEngine.rate();
-        OfflineTtsEngine.setRate(rate);
-        OfflineTtsEngine.say(a.getApplicationContext(), text);
-        OfflineTtsEngine.setRate(old);
+        OfflineTtsEngine.say(a.getApplicationContext(), text, rate);
     }
 
     public static void stop() {

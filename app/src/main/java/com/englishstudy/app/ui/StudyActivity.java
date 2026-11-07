@@ -43,6 +43,8 @@ public class StudyActivity extends Activity {
     private TextView progressText;
     private ProgressBar bar;
     private LinearLayout body;
+    private ScrollView scroll;
+    private LinearLayout gradeBar;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -75,12 +77,23 @@ public class StudyActivity extends Activity {
         root.addView(bar, blp);
 
         ScrollView sv = new ScrollView(this);
+        scroll = sv;
         body = U.col(this);
         int p = U.px(this, 16);
         body.setPadding(p, U.px(this, 14), p, U.px(this, 24));
         sv.addView(body);
         root.addView(sv, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // 评分栏固定在底部：释义再长也不会把按钮挤到屏幕外
+        gradeBar = U.col(this);
+        int gp = U.px(this, 12);
+        gradeBar.setPadding(gp, gp, gp, gp);
+        gradeBar.setBackgroundColor(getColor(R.color.bg2));
+        gradeBar.setVisibility(android.view.View.GONE);
+        root.addView(gradeBar, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
         fill(mode);
@@ -140,6 +153,8 @@ public class StudyActivity extends Activity {
         entry = Dict.lookup(card.w);
         answered = false;
         render();
+        // 新题回到顶部，否则会停在上一题的滚动位置
+        if (scroll != null) scroll.scrollTo(0, 0);
     }
 
     private void render() {
@@ -186,6 +201,8 @@ public class StudyActivity extends Activity {
 
     /** 未作答：只显示「显示释义」。 */
     private void renderReveal() {
+        gradeBar.removeAllViews();
+        gradeBar.setVisibility(android.view.View.GONE);
         TextView show = U.primaryButton(this, "显示释义");
         show.setOnClickListener(v -> {
             answered = true;
@@ -233,9 +250,8 @@ public class StudyActivity extends Activity {
             body.addView(exCard);
         }
 
-        body.addView(U.spacer(this, 16));
-
-        // 四档
+        // 四档（固定底栏）
+        gradeBar.removeAllViews();
         int[] preview = Review.preview(card, System.currentTimeMillis());
         String[] labels = {"忘了", "勉强", "记得", "太简单"};
         int[] colors = {R.color.danger, R.color.warn, R.color.primary, R.color.accent};
@@ -266,7 +282,8 @@ public class StudyActivity extends Activity {
             lp.rightMargin = U.px(this, 3);
             row.addView(box, lp);
         }
-        body.addView(row);
+        gradeBar.addView(row);
+        gradeBar.setVisibility(android.view.View.VISIBLE);
     }
 
     private void applyGrade(int g) {
@@ -290,6 +307,8 @@ public class StudyActivity extends Activity {
     private void done() {
         Vocab.flush();
         body.removeAllViews();
+        gradeBar.removeAllViews();
+        gradeBar.setVisibility(android.view.View.GONE);
         bar.setProgress(100);
         progressText.setText("完成");
 

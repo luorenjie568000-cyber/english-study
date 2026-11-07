@@ -154,13 +154,20 @@ public final class Dict {
         int frq = cur.getInt(11);
         return new Entry(
                 nz(cur.getString(0)), nz(cur.getString(1)), nz(cur.getString(2)),
-                nz(cur.getString(3)), nz(cur.getString(4)), nz(cur.getString(5)),
+                unesc(cur.getString(3)), unesc(cur.getString(4)), nz(cur.getString(5)),
                 nz(cur.getString(6)), nz(cur.getString(7)), nz(cur.getString(8)),
                 collins, oxford, frq);
     }
 
     private static String nz(String s) {
         return s == null ? "" : s;
+    }
+
+    /** ECDICT 的 trans/definition 里是字面量 \n，还原成真换行。 */
+    private static String unesc(String s) {
+        if (s == null) return "";
+        if (s.indexOf('\\') < 0) return s;
+        return s.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n");
     }
 
     /** 精确查词（大小写不敏感）。 */
