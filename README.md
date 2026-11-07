@@ -85,3 +85,11 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 - 单词详情页加跟读练习，阅读页每句可单独朗读 + 整篇通读
 - 修复：播放被截断（等 playback head）、renameTo 静默失败、释义字面量 \n、评分栏被挤出屏幕、选句重置滚动、Whisper [BLANK_AUDIO] 占位、语速异步失效
 - 新启动图标，版本号 400/4.0
+
+### v4.2（2026-11-07 晚）
+- 修复写作批改必闪退：`a.getColor(scoreColor(...))` 把已算好的 ARGB 当资源 id 再查一次
+  → `Resources$NotFoundException: Resource ID #0xfff59e0b`
+- 44 个音素全部换成**真人录音**（toipa.org / ipachart 的 Wikimedia Commons 录音），
+  不再用 espeak 合成；塞擦音 tʃ/dʒ 由真实爆破段 + 真实擦音拼合
+- 音色设置真正生效：`voice.tts` 决定加载 Amy 还是 Lessac（之前永远优先 Amy）
+- 新增 `tools/build_ipa.py` 与 `assets/ipa/SOURCE.md`（来源与处理流程）
