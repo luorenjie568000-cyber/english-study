@@ -17,6 +17,7 @@ BT=$ENV/bt
 ANDROID_ALL=$ENV/lib/android-all.jar
 KOTLIN=$ENV/lib/kotlin-stdlib.jar
 SHERPA=$ENV/sherpa/classes.jar
+LLAMA=$ROOT/libs/llama.jar
 R8=$ENV/lib/r8.jar
 
 rm -rf "$OUT"
@@ -29,13 +30,13 @@ echo "== 2. aapt2 link"
 "$BT/aapt2" link -o "$OUT/base.apk" -I "$ANDROID_ALL" \
   --manifest "$SRC/AndroidManifest.xml" \
   --java "$OUT/gen" --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 430 --version-name "4.3" \
+  --version-code 440 --version-name "4.4" \
   "$OUT/res.zip"
 
 echo "== 3. javac"
 find "$SRC/java" "$OUT/gen" -name '*.java' > "$OUT/srcs.txt"
 javac -nowarn -encoding UTF-8 -source 8 -target 8 \
-  -cp "$ANDROID_ALL:$KOTLIN:$SHERPA" \
+  -cp "$ANDROID_ALL:$KOTLIN:$SHERPA:$LLAMA" \
   -d "$OUT/classes" @"$OUT/srcs.txt" 2>&1 \
   | grep -v -E 'bootstrap class path|source value 8|target value 8|deprecat|警告|warning|^Note' | head -50 || true
 
@@ -49,6 +50,7 @@ echo "== 4. d8"
 find "$OUT/classes" -name '*.class' > "$OUT/cls.txt"
 # sherpa 与 kotlin 必须作为输入打包进 dex
 echo "$SHERPA" >> "$OUT/cls.txt"
+echo "$LLAMA" >> "$OUT/cls.txt"
 echo "$KOTLIN" >> "$OUT/cls.txt"
 java -cp "$R8" com.android.tools.r8.D8 \
   --release --min-api 24 \
@@ -65,6 +67,9 @@ echo "== 5. 组装"
 cp "$OUT/base.apk" "$OUT/unsigned.apk"
 mkdir -p "$OUT/asm/lib/arm64-v8a"
 cp "$ENV/sherpa/jni/arm64-v8a/libsherpa-onnx-jni.so" "$OUT/asm/lib/arm64-v8a/"
+if [ -d "$ROOT/app/src/main/jniLibs/arm64-v8a" ]; then
+  cp "$ROOT/app/src/main/jniLibs/arm64-v8a/"*.so "$OUT/asm/lib/arm64-v8a/"
+fi
 cp "$OUT/dex/classes.dex" "$OUT/asm/classes.dex"
 if [ -d "$SRC/assets" ]; then
   cp -r "$SRC/assets" "$OUT/asm/assets"

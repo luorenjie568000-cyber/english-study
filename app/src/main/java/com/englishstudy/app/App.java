@@ -194,5 +194,6 @@ public class App extends Application {
             if (st) selfTest();
         }, "loader").start();
         if (st) new Thread(this::voiceSelfTest, "voice-diag").start();
+        if (st) new Thread(() -> com.englishstudy.app.voice.LocalLlm.selfTest(this), "llm-diag").start();
     }
 }

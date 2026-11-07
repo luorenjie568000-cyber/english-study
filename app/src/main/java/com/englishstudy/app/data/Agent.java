@@ -62,9 +62,21 @@ public final class Agent {
 
     // ---------------------------------------------------------------- 配置
 
+    /** 本地模型是否已下载并启用。 */
+    public static boolean localMode() {
+        return Store.getBool("ai.local", false);
+    }
+
     public static boolean configured() {
         return !Store.get("ai.key", "").isEmpty()
                 && !Store.get("ai.base", "").isEmpty();
+    }
+
+    /** 当前用哪种模式回答。 */
+    public static String modeName() {
+        if (localMode()) return "本地模型";
+        if (configured()) return "云端 " + modelName();
+        return "离线规则";
     }
 
     public static String baseUrl() {
@@ -113,12 +125,163 @@ public final class Agent {
 
     /** 同步发送（调用方负责放到后台线程）。返回最终文本。 */
     public static String chat(String userText) throws Exception {
+        if (localMode()) return chatLocal(userText);
         if (!configured()) return OfflineTutor.reply(userText);
 
         remember("user", userText);
         String answer = runLoop();
         remember("assistant", answer);
         return answer;
+    }
+
+    /**
+     * 本地模型：端侧小模型不支持可靠的 function calling，
+     * 所以改成「先把本地数据喂进上下文，再让它组织语言」——
+     * 结果一样准确，但不需要模型会调工具。
+     */
+    private static String chatLocal(String userText) {
+        android.content.Context c = com.englishstudy.app.App.ctx();
+        if (c != null && !com.englishstudy.app.voice.LocalLlm.loaded()) {
+            com.englishstudy.app.voice.LocalLlm.Pack pk =
+                    com.englishstudy.app.voice.LocalLlm.active(c);
+            if (pk != null) com.englishstudy.app.voice.LocalLlm.load(c, pk);
+        }
+        if (!com.englishstudy.app.voice.LocalLlm.loaded()) {
+            return OfflineTutor.reply(userText);
+        }
+
+        // 实测：1.5B 直接问答很稳（16 tok/s），但把「词典条目」整段塞进 user
+        // 会让它在第 1 个 token 就停。所以分两步：
+        //   1) 先确定用户问的是哪个词
+        //   2) 有词典命中就用本地资料拼答案（这条永远准确）
+        //      没有命中才让模型自由回答
+        String w = pickWord(userText);
+        Dict.Entry e = w == null ? null : Dict.lookup(w);
+        if (e != null) return dictionaryAnswer(e, userText);
+        if (userText.contains("复习") || userText.contains("到期")) return dueAnswer();
+
+        String sys = "你是英语学习助手，用中文简短回答。";
+        String out = com.englishstudy.app.voice.LocalLlm.ask(sys, userText, 300);
+        if (out == null || out.trim().isEmpty()) return OfflineTutor.reply(userText);
+        String clean = out.trim().replaceAll("^[：:，,。\\s]+", "");
+        return clean.isEmpty() ? OfflineTutor.reply(userText) : clean;
+    }
+
+    /** 词典命中：用本地数据拼一份准确答案（不劳模型编）。 */
+    private static String dictionaryAnswer(Dict.Entry e, String userText) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("**").append(e.word).append("**");
+        String ipa = e.displayIpa();
+        if (!ipa.isEmpty()) sb.append("  /").append(ipa).append("/");
+        sb.append('\n');
+        if (!e.def.isEmpty()) sb.append(e.def.replace("\n", "\n")).append('\n');
+
+        List<Sentences.Item> ex = Sentences.items(e.word);
+        if (!ex.isEmpty()) {
+            sb.append("\n例句：\n");
+            int n = Math.min(3, ex.size());
+            for (int i = 0; i < n; i++) {
+                Sentences.Item it = ex.get(i);
+                sb.append("· ").append(it.en).append('\n');
+                if (it.hasZh()) sb.append("  ").append(it.zh).append('\n');
+            }
+        }
+        if (!e.exchange.isEmpty()) {
+            sb.append("\n词形：").append(e.exchange.replace("/", " · "));
+        }
+        if (Vocab.get(e.word) == null) {
+            Vocab.getOrCreate(e.word);
+            Vocab.flush();
+            sb.append("\n\n（已顺手加入生词本）");
+        }
+        return sb.toString();
+    }
+
+    private static String dueAnswer() {
+        List<com.englishstudy.app.engine.Card> due =
+                Vocab.due(System.currentTimeMillis(), 10);
+        if (due.isEmpty()) return "现在没有到期的词，今天已经清空了。";
+        StringBuilder sb = new StringBuilder("今天到期 ").append(due.size()).append(" 个：\n");
+        for (com.englishstudy.app.engine.Card c : due) {
+            Dict.Entry e = Dict.lookup(c.w);
+            sb.append("· ").append(c.w);
+            if (e != null && !e.def.isEmpty()) {
+                String d = e.def.replace("\n", "；");
+                sb.append(" — ").append(d.length() > 22 ? d.substring(0, 22) + "…" : d);
+            }
+            sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** 把用户问题涉及的本地数据整理成一段资料，供小模型引用。 */
+    private static String buildLocalContext(String userText) {
+        StringBuilder sb = new StringBuilder();
+        String w = pickWord(userText);
+        if (w != null) {
+            Dict.Entry e = Dict.lookup(w);
+            if (e != null) {
+                sb.append("单词：").append(e.word);
+                String ipa = e.displayIpa();
+                if (!ipa.isEmpty()) sb.append(" /").append(ipa).append("/");
+                String d = e.def.replace("\n", "；");
+                if (d.length() > 60) d = d.substring(0, 60) + "…";
+                sb.append(" = ").append(d).append('\n');
+                List<Sentences.Item> ex = Sentences.items(e.word);
+                if (!ex.isEmpty()) {
+                    Sentences.Item it = ex.get(0);
+                    sb.append("例句：").append(it.en);
+                    if (it.hasZh()) sb.append("（").append(it.zh).append("）");
+                    sb.append('\n');
+                }
+            }
+        }
+        if (userText.contains("复习") || userText.contains("到期")) {
+            List<com.englishstudy.app.engine.Card> due =
+                    Vocab.due(System.currentTimeMillis(), 8);
+            if (!due.isEmpty()) {
+                sb.append("【待复习】");
+                for (com.englishstudy.app.engine.Card c : due) sb.append(c.w).append(' ');
+                sb.append('\n');
+            }
+        }
+        if (looksLikeEnglish(userText) && userText.trim().split("\\s+").length >= 4) {
+            com.englishstudy.app.engine.WritingChecker.Result r =
+                    com.englishstudy.app.engine.WritingChecker.check(userText);
+            sb.append("【本地批改】").append(r.score).append(" 分，").append(r.verdict).append('\n');
+            for (int i = 0; i < Math.min(3, r.issues.size()); i++) {
+                com.englishstudy.app.engine.WritingChecker.Issue it = r.issues.get(i);
+                sb.append("- ").append(it.type).append("「").append(it.snippet).append("」");
+                if (!it.hint.isEmpty()) sb.append(" → ").append(it.hint);
+                sb.append('\n');
+            }
+        }
+        return sb.length() == 0 ? "（没有额外资料）" : sb.toString();
+    }
+
+    private static boolean looksLikeEnglish(String s) {
+        int letters = 0, han = 0;
+        for (char c : s.toCharArray()) {
+            if (Character.isLetter(c) && c < 128) letters++;
+            else if (Character.UnicodeScript.of(c) == Character.UnicodeScript.HAN) han++;
+        }
+        return letters > han;
+    }
+
+    private static String pickWord(String s) {
+        String best = null;
+        StringBuilder cur = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            if (Character.isLetter(c) && c < 128) cur.append(c);
+            else {
+                if (cur.length() >= 2 && (best == null || cur.length() > best.length()))
+                    best = cur.toString();
+                cur.setLength(0);
+            }
+        }
+        if (cur.length() >= 2 && (best == null || cur.length() > best.length()))
+            best = cur.toString();
+        return best == null ? null : best.toLowerCase(java.util.Locale.US);
     }
 
     private static String runLoop() throws Exception {

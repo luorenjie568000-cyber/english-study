@@ -51,9 +51,7 @@ public class ChatView {
         top.setPadding(U.px(a, 16), U.px(a, 14), U.px(a, 12), U.px(a, 8));
         LinearLayout titleBox = U.col(a);
         titleBox.addView(U.bold(a, "学伴", 22, a.getColor(R.color.text)));
-        titleBox.addView(U.tv(a, Agent.configured()
-                ? "已接入 " + Agent.modelName() + " · 可调本地工具"
-                : "离线模式 · 查词/翻译/批改/复习", 11, a.getColor(R.color.text_dim2)));
+        titleBox.addView(U.tv(a, subtitle(), 11, a.getColor(R.color.text_dim2)));
         top.addView(titleBox, U.weight(1));
 
         TextView gear = U.tv(a, "设置", 13, a.getColor(R.color.primary));
@@ -123,6 +121,16 @@ public class ChatView {
         }
         renderAll();
         return outer;
+    }
+
+    private String subtitle() {
+        if (Agent.localMode()) {
+            String st = com.englishstudy.app.voice.LocalLlm.loaded()
+                    ? "本地模型已加载 · 完全离线" : "本地模型 · 首次提问时加载";
+            return st;
+        }
+        if (Agent.configured()) return "已接入 " + Agent.modelName() + " · 可调本地工具";
+        return "离线模式 · 查词/翻译/批改/复习";
     }
 
     private String greeting() {
@@ -239,6 +247,21 @@ public class ChatView {
         TextView hint = U.tv(a, "提示：Key 只存在本机 SharedPreferences，不会上传到别处。",
                 11, a.getColor(R.color.text_dim2));
         box.addView(hint);
+        box.addView(U.spacer(a, 14));
+
+        // 本地模型开关（不联网也能用）
+        LinearLayout local = U.row(a);
+        local.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
+        String lm = com.englishstudy.app.voice.LocalLlm.doneBytes(a,
+                com.englishstudy.app.voice.LocalLlm.pack()) > 0
+                ? "已下载 " + (com.englishstudy.app.voice.LocalLlm.doneBytes(a,
+                        com.englishstudy.app.voice.LocalLlm.pack()) / 1048576) + "MB"
+                : "未下载";
+        local.addView(U.tv(a, "本地模型（端侧）", 14, a.getColor(R.color.text)), U.weight(1));
+        local.addView(U.tv(a, Agent.localMode() ? "已启用 · " + lm : lm + " ›", 12,
+                a.getColor(R.color.primary)));
+        local.setOnClickListener(v -> LocalModelPanel.show(a));
+        box.addView(local);
 
         new AlertDialog.Builder(a)
                 .setTitle("学伴设置")

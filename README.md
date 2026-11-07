@@ -108,3 +108,23 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 - 修复 `Agent` 的 `tool_call_id` 协议：tool 消息必须回带对应 id，assistant 的
   `tool_calls` 必须原样保留，否则接口直接 400 或返回空
 - Manifest 加 `usesCleartextTraffic=true`（本地/Ollama 常是 http）
+
+### v4.4（2026-11-07 深夜）
+- **端侧本地模型**（llama.cpp / GGUF），完全离线、零 API 费用：
+  - 原生库来自 `ffmpegkit-maintained/llama-android` 的 AAR（arm64-v8a），
+    只取 `LlamaJNI` 这一层同步 JNI，**不引入 kotlinx-coroutines**
+  - 支持 Qwen2.5-0.5B（380MB，43 tok/s）与 Qwen2.5-1.5B（940MB，16 tok/s）
+  - 下载器带 `.part` 断点续传 + 字节数校验（同语音模型的写法）
+- 本地模式的回答策略（实测得出）：
+  - 词典命中 → **直接用本地数据拼答案**，不让小模型转述（转述会跑偏）
+  - 复习 → 直接列真实到期词
+  - 其余问题才交给模型自由回答
+- 三种模式：本地模型 / 云端（OpenAI 兼容 + 4 个工具）/ 离线规则
+
+#### 端侧模型踩的坑
+1. `nativeComplete` **内部已经用模型自带 chat template 拼 prompt**（读 JNI 源码确认），
+    Java 侧再套 `<|im_start|>` 会双套模板
+2. 返回值是 JSON 字符串，`{"text":..,"tokensPerSecond":..}`，不是裸文本
+3. 把整段词典条目塞进 user 会让 1.5B **在第 1 个 token 就停**；
+   干净短 prompt 下同一模型能稳定输出 60 token
+4. `-source 8` 编译，正则里的 `\s` 在 Java 字符串里要写 `\\s`，否则被当 text block 报错
