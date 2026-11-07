@@ -13,12 +13,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
-/** 例句库：assets/sents4.tsv.gz，格式 word \t 句1 \x1f 句2 … */
+/**
+ * 例句库：assets/sents4.tsv.gz
+ *
+ * 行格式：word \t en1 \x1f zh1 \x1e en2 \x1f zh2 …
+ * 中文可能为空（该句 Tatoeba 里没有对应译文）。
+ */
 public final class Sentences {
 
     private static final String TAG = "Sentences";
-    private static final Map<String, List<String>> MAP = new HashMap<>(8192);
+    private static final char SEG = '\u001e';
+    private static final char FIELD = '\u001f';
+
+    /** 一条例句。 */
+    public static final class Item {
+        public final String en;
+        public final String zh;
+
+        Item(String en, String zh) {
+            this.en = en;
+            this.zh = zh;
+        }
+
+        public boolean hasZh() {
+            return zh != null && !zh.isEmpty();
+        }
+    }
+
+    private static final Map<String, List<Item>> MAP = new HashMap<>(8192);
     private static volatile boolean ready;
+    private static int withZh;
 
     private Sentences() {
     }
@@ -40,11 +64,14 @@ public final class Sentences {
                 int tab = line.indexOf('\t');
                 if (tab <= 0) continue;
                 String w = line.substring(0, tab);
-                String[] parts = line.substring(tab + 1).split("\u001f");
-                List<String> list = new ArrayList<>(parts.length);
-                for (String s : parts) {
-                    String t = s.trim();
-                    if (!t.isEmpty()) list.add(t);
+                List<Item> list = new ArrayList<>(4);
+                for (String seg : line.substring(tab + 1).split(String.valueOf(SEG))) {
+                    int bar = seg.indexOf(FIELD);
+                    String en = (bar < 0 ? seg : seg.substring(0, bar)).trim();
+                    String zh = bar < 0 ? "" : seg.substring(bar + 1).trim();
+                    if (en.isEmpty()) continue;
+                    list.add(new Item(en, zh));
+                    if (!zh.isEmpty()) withZh++;
                 }
                 if (!list.isEmpty()) MAP.put(w, list);
             }
@@ -53,15 +80,15 @@ public final class Sentences {
             Log.e(TAG, "load failed", e);
         }
         ready = true;
-        Log.i(TAG, "loaded " + MAP.size() + " words in "
+        Log.i(TAG, "loaded " + MAP.size() + " words / " + withZh + " 带译文 in "
                 + (System.currentTimeMillis() - t0) + "ms");
     }
 
-    /** 取例句，自动做词形还原。 */
-    public static List<String> of(String word) {
+    /** 取例句（含中文），自动做词形还原。 */
+    public static List<Item> items(String word) {
         if (word == null) return new ArrayList<>(0);
         String w = word.toLowerCase();
-        List<String> l = MAP.get(w);
+        List<Item> l = MAP.get(w);
         if (l != null) return l;
 
         String base = Dict.lemmaOf(w);
@@ -76,7 +103,19 @@ public final class Sentences {
         return new ArrayList<>(0);
     }
 
+    /** 只要英文（旧接口，保持兼容）。 */
+    public static List<String> of(String word) {
+        List<Item> items = items(word);
+        List<String> out = new ArrayList<>(items.size());
+        for (Item it : items) out.add(it.en);
+        return out;
+    }
+
     public static int wordCount() {
         return MAP.size();
+    }
+
+    public static int withZhCount() {
+        return withZh;
     }
 }

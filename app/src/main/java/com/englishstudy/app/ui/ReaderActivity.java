@@ -135,4 +135,11 @@ public class ReaderActivity extends Activity {
         }
         return sp;
     }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 离开页面立刻停掉朗读，否则声音会跟着退出继续播
+        Tts.stop();
+    }
 }

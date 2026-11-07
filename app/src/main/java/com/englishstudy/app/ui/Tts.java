@@ -47,6 +47,13 @@ public final class Tts {
         OfflineTtsEngine.say(a.getApplicationContext(), text, rate);
     }
 
+    /** 读单个音标（走预合成音频，避免 TTS 把符号念成怪音）。 */
+    public static void sayPhone(Activity a, String sym) {
+        if (sym == null || sym.isEmpty()) return;
+        init(a);
+        OfflineTtsEngine.sayPhone(a.getApplicationContext(), sym);
+    }
+
     public static void stop() {
         OfflineTtsEngine.stop();
     }

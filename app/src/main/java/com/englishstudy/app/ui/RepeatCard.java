@@ -41,13 +41,21 @@ public final class RepeatCard {
                 state.setText("语音引擎未就绪：请到「我的 → 离线语音」下载识别模型");
                 return;
             }
-            state.setText("正在听…请朗读 " + tgt);
+            final long[] t0 = {System.currentTimeMillis()};
+            state.setText("正在录音 0s ▯▯▯▯▯▯▯▯▯▯");
             score.setText("");
-            btn.setText("⏹ 停止");
+            btn.setText("⏹ 停止并识别");
             OfflineAsrEngine.listen(a.getApplicationContext(), new OfflineAsrEngine.Callback() {
                 @Override public void onStart() { }
 
-                @Override public void onLevel(float level) { }
+                @Override public void onLevel(float level) {
+                    long sec = (System.currentTimeMillis() - t0[0]) / 1000;
+                    int bars = (int) Math.min(10, level * 14);
+                    StringBuilder sb = new StringBuilder("正在录音 ");
+                    sb.append(sec).append("s  ");
+                    for (int i = 0; i < 10; i++) sb.append(i < bars ? '▮' : '▯');
+                    state.setText(sb.toString());
+                }
 
                 @Override public void onResult(String text) {
                     btn.setText("🎤 开始跟读");

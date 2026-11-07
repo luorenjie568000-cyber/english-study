@@ -90,6 +90,8 @@ public class MainActivity extends Activity {
 
     private void select(int idx) {
         if (current == idx) return;
+        // 切页先掐掉上一页的朗读
+        com.englishstudy.app.ui.Tts.stop();
         current = idx;
         for (int i = 0; i < labels.length; i++) {
             labels[i].setTextColor(getColor(i == idx ? R.color.primary : R.color.text_dim2));

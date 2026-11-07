@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class OfflineTtsEngine {
 
     private static OfflineTts tts;
+    private static String voiceId = "";
     private static boolean loading;
     private static boolean failed;
     private static float rate = 0.92f;
@@ -55,9 +56,13 @@ public final class OfflineTtsEngine {
         final Context app = c.getApplicationContext();
         POOL.execute(() -> {
             try {
-                ModelRepo.Pack pack = ModelRepo.ttsAmi();
+                // 音色由设置决定（voice.tts = amy | lessac），没装的那个自动退到另一个
+                String want = com.englishstudy.app.data.Store.get("voice.tts", "amy");
+                ModelRepo.Pack pack = "lessac".equals(want)
+                        ? ModelRepo.ttsLessac() : ModelRepo.ttsAmi();
                 if (!ModelRepo.ready(app, pack)) {
-                    pack = ModelRepo.ttsLessac();
+                    pack = "lessac".equals(want)
+                            ? ModelRepo.ttsAmi() : ModelRepo.ttsLessac();
                 }
                 if (!ModelRepo.ready(app, pack)) {
                     failed = true;
@@ -100,6 +105,7 @@ public final class OfflineTtsEngine {
                     }
                 } else {
                     tts = t;
+                    voiceId = pack.id;
                 }
             } catch (Throwable e) {
                 failed = true;
@@ -107,6 +113,11 @@ public final class OfflineTtsEngine {
                 loading = false;
             }
         });
+    }
+
+    /** 当前加载的音色 id（amy / lessac），未加载返回空串。 */
+    public static String loadedVoice() {
+        return voiceId;
     }
 
     public static boolean ready() {
@@ -269,8 +280,51 @@ public final class OfflineTtsEngine {
         }
     }
 
-    /** 自检用：合成一句话写成 wav，返回 "ok samples=… sr=… dur=…s path=…"。 */
-    public static String probe(String text) {
+    /**
+     * 朗读单个音标：读 assets/ipa/<sym>.raw（16k 单声道 PCM16）。
+     *
+     * 不能把音素符号交给 TTS 去念——模型会把它当拼写读成怪音，
+     * 所以 44 个音素都用 espeak-ng 预合成好打包在 assets 里。
+     */
+    public static void sayPhone(Context c, String sym) {
+        if (sym == null || sym.isEmpty()) return;
+        final Context app = c.getApplicationContext();
+        final String name = "ipa/" + sym.replace("\u02d0", "_") + ".raw";
+        stop();
+        speaking.set(true);
+        POOL.execute(() -> {
+            try {
+                java.io.InputStream in = app.getAssets().open(name);
+                byte[] raw = readAll(in);
+                in.close();
+                if (raw.length < 2) {
+                    diag("phone empty " + name);
+                    return;
+                }
+                float[] pcm = new float[raw.length / 2];
+                for (int i = 0; i < pcm.length; i++) {
+                    int lo = raw[i * 2] & 0xff;
+                    int hi = raw[i * 2 + 1];
+                    pcm[i] = (short) ((hi << 8) | lo) / 32768f;
+                }
+                if (speaking.get()) play(pcm, SR);
+            } catch (Throwable e) {
+                diag("phone ERR " + name + " " + e.getClass().getSimpleName());
+            }
+        });
+    }
+
+    private static final int SR = 16000;
+
+    private static byte[] readAll(java.io.InputStream in) throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(16384);
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        return out.toByteArray();
+    }
+
+    /** 自检用：合成一句话写成 wav，返回 "ok samples=… sr=… dur=…s path=…"。 */    public static String probe(String text) {
         try {
             long t0 = System.currentTimeMillis();
             while (tts == null && !failed && System.currentTimeMillis() - t0 < 30000) {

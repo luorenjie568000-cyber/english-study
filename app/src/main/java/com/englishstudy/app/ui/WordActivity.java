@@ -10,6 +10,7 @@ import android.widget.TextView;
 import com.englishstudy.app.R;
 import com.englishstudy.app.data.Dict;
 import com.englishstudy.app.data.Sentences;
+import com.englishstudy.app.data.Store;
 import com.englishstudy.app.data.Vocab;
 import com.englishstudy.app.engine.Card;
 
@@ -125,29 +126,64 @@ public class WordActivity extends Activity {
 
         // 例句
         Sentences.load(this);
-        List<String> ex = new ArrayList<>(Sentences.of(e == null ? word : e.word));
+        List<Sentences.Item> ex = new ArrayList<>(Sentences.items(e == null ? word : e.word));
         if (!ex.isEmpty()) {
             root.addView(U.spacer(this, 12));
             LinearLayout exCard = U.card(this);
+
             LinearLayout exHead = U.row(this);
             exHead.addView(U.bold(this, "例句", 13, getColor(R.color.text_dim)), U.weight(1));
-            exHead.addView(U.tv(this, ex.size() + " 句 · 点按朗读", 11,
-                    getColor(R.color.text_dim2)));
+            // 中文默认隐藏，点一下全展开
+            final boolean[] zhOn = {Store.getInt("ex.zh", 0) == 1};
+            TextView zhBtn = U.tv(this, zhOn[0] ? "隐藏中文" : "看中文", 12,
+                    getColor(R.color.primary));
+            zhBtn.setPadding(U.px(this, 8), U.px(this, 2), U.px(this, 8), U.px(this, 2));
+            zhBtn.setBackgroundResource(R.drawable.bg_pill);
+            exHead.addView(zhBtn);
             exCard.addView(exHead);
-            int idx = 0;
-            for (String s : ex) {
-                idx++;
-                LinearLayout line = U.row(this);
-                line.setPadding(0, U.px(this, 10), 0, 0);
-                TextView num = U.tv(this, String.valueOf(idx), 11, getColor(R.color.primary));
-                num.setPadding(0, U.px(this, 2), U.px(this, 8), 0);
-                line.addView(num);
-                TextView t = U.tv(this, s, 14, getColor(R.color.text));
-                t.setLineSpacing(U.dp(this, 4), 1f);
-                t.setOnClickListener(v -> Tts.say(this, s));
-                line.addView(t, U.weight(1));
-                exCard.addView(line);
-            }
+            exCard.addView(U.tv(this, ex.size() + " 句 · 点句子朗读", 11,
+                    getColor(R.color.text_dim2)));
+
+            LinearLayout exBody = U.col(this);
+            exCard.addView(exBody);
+
+            final int[] count = {ex.size()};
+            final Runnable rebuild = () -> {
+                exBody.removeAllViews();
+                int idx = 0;
+                for (Sentences.Item it : ex) {
+                    idx++;
+                    LinearLayout line = U.row(this);
+                    line.setGravity(Gravity.TOP);
+                    line.setPadding(0, U.px(this, 10), 0, 0);
+                    TextView num = U.tv(this, String.valueOf(idx), 11, getColor(R.color.primary));
+                    num.setPadding(0, U.px(this, 2), U.px(this, 8), 0);
+                    line.addView(num);
+
+                    LinearLayout col = U.col(this);
+                    TextView t = U.tv(this, it.en, 14, getColor(R.color.text));
+                    t.setLineSpacing(U.dp(this, 4), 1f);
+                    t.setOnClickListener(v -> Tts.say(this, it.en));
+                    col.addView(t);
+                    if (zhOn[0]) {
+                        TextView z = U.tv(this, it.hasZh() ? it.zh : "（暂无译文）", 12,
+                                getColor(it.hasZh() ? R.color.text_dim : R.color.text_dim2));
+                        z.setLineSpacing(U.dp(this, 3), 1f);
+                        z.setPadding(0, U.px(this, 3), 0, 0);
+                        col.addView(z);
+                    }
+                    line.addView(col, U.weight(1));
+                    exBody.addView(line);
+                }
+            };
+            rebuild.run();
+
+            zhBtn.setOnClickListener(v -> {
+                zhOn[0] = !zhOn[0];
+                Store.putInt("ex.zh", zhOn[0] ? 1 : 0);
+                zhBtn.setText(zhOn[0] ? "隐藏中文" : "看中文");
+                rebuild.run();
+            });
             root.addView(exCard);
         }
 
@@ -159,7 +195,7 @@ public class WordActivity extends Activity {
         // 跟读
         root.addView(U.spacer(this, 12));
         String repeatTarget = e == null ? word : e.word;
-        if (!ex.isEmpty()) repeatTarget = ex.get(0);
+        if (!ex.isEmpty()) repeatTarget = ex.get(0).en;
         root.addView(RepeatCard.build(this, repeatTarget));
 
         sv.addView(root);
@@ -269,5 +305,12 @@ public class WordActivity extends Activity {
 
     private void toast(String m) {
         android.widget.Toast.makeText(this, m, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Tts.stop();
+        com.englishstudy.app.voice.OfflineAsrEngine.stopListening();
     }
 }

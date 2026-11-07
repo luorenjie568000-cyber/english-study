@@ -102,6 +102,15 @@ public class MineView {
         card.addView(divider());
         card.addView(switchRow("朗读语速", String.format("%.2fx", Store.getInt("rate", 92) / 100f),
                 v -> pickRate()));
+        card.addView(divider());
+        card.addView(switchRow("朗读音色", voiceLabel(), v -> pickVoice()));
+        card.addView(divider());
+        card.addView(switchRow("例句中文", Store.getInt("ex.zh", 0) == 1 ? "显示" : "隐藏",
+                v -> {
+                    boolean on = Store.getInt("ex.zh", 0) != 1;
+                    Store.putInt("ex.zh", on ? 1 : 0);
+                    ((MainActivity) a).refresh();
+                }));
         return card;
     }
 
@@ -170,6 +179,70 @@ public class MineView {
                     Tts.setRate(vals[i] / 100f);
                     ((MainActivity) a).refresh();
                 }).show();
+    }
+
+    private String voiceLabel() {
+        String want = Store.get("voice.tts", "amy");
+        String cur = com.englishstudy.app.voice.OfflineTtsEngine.loadedVoice();
+        String name = "lessac".equals(want) ? "男声 Lessac" : "女声 Amy";
+        if (!cur.isEmpty() && !cur.equals("vits-" + want)) {
+            // 想用的那个没装，实际跑的是另一个
+            return name + "（未装，暂用 " + ("lessac".equals(want) ? "Amy" : "Lessac") + "）";
+        }
+        return name;
+    }
+
+    /** 音色切换：选完立刻热重载，并把示例句念一遍。 */
+    private void pickVoice() {
+        com.englishstudy.app.voice.ModelRepo.Pack amy =
+                com.englishstudy.app.voice.ModelRepo.ttsAmi();
+        com.englishstudy.app.voice.ModelRepo.Pack les =
+                com.englishstudy.app.voice.ModelRepo.ttsLessac();
+        boolean hasAmy = com.englishstudy.app.voice.ModelRepo.ready(a, amy);
+        boolean hasLes = com.englishstudy.app.voice.ModelRepo.ready(a, les);
+
+        java.util.List<String> names = new java.util.ArrayList<>();
+        final java.util.List<String> ids = new java.util.ArrayList<>();
+        names.add("女声 Amy" + (hasAmy ? "" : "（未下载）"));
+        ids.add("amy");
+        names.add("男声 Lessac" + (hasLes ? "" : "（未下载）"));
+        ids.add("lessac");
+
+        new AlertDialog.Builder(a)
+                .setTitle("朗读音色")
+                .setItems(names.toArray(new String[0]), (d, i) -> {
+                    String id = ids.get(i);
+                    boolean have = "amy".equals(id) ? hasAmy : hasLes;
+                    if (!have) {
+                        new AlertDialog.Builder(a)
+                                .setTitle("模型还没下载")
+                                .setMessage("先去下面「离线语音」里下载这个音色，再回来切换。")
+                                .setPositiveButton("知道了", null)
+                                .show();
+                        return;
+                    }
+                    Store.put("voice.tts", id);
+                    Tts.shutdown();
+                    Tts.init(a);
+                    ((MainActivity) a).refresh();
+
+                    // 模型加载是异步的，等它就绪再念示例句，否则会退到系统 TTS
+                    final android.os.Handler h =
+                            new android.os.Handler(android.os.Looper.getMainLooper());
+                    final long deadline = System.currentTimeMillis() + 15000;
+                    final Runnable[] trySay = new Runnable[1];
+                    trySay[0] = () -> {
+                        boolean ok = com.englishstudy.app.voice.OfflineTtsEngine.ready();
+                        boolean bad = com.englishstudy.app.voice.OfflineTtsEngine.unavailable();
+                        if (ok || bad || System.currentTimeMillis() > deadline) {
+                            Tts.say(a, "This is how I sound now.");
+                        } else {
+                            h.postDelayed(trySay[0], 400);
+                        }
+                    };
+                    h.postDelayed(trySay[0], 400);
+                })
+                .show();
     }
 
     private void confirmReset() {

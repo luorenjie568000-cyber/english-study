@@ -36,6 +36,7 @@ public class SpeakView {
     private final Activity a;
     private LinearLayout root;
     private int tab;                    // 0 跟读 / 1 场景
+    private long recStart;              // 录音起始时刻，用于显示时长
     private String target = Scenes.SHADOW[0][1];
     private TextView targetTv;          // 练习句展示，选句时原地更新不重建页面
     private ScrollView scroll;
@@ -185,13 +186,21 @@ public class SpeakView {
                 OfflineAsrEngine.stopListening();
                 return;
             }
-            status.setText("正在听…请朗读上面这句");
-            mic.setText("⏹ 停止");
+            recStart = System.currentTimeMillis();
+            status.setText("正在录音 0s  ▯▯▯▯▯▯▯▯▯▯");
+            mic.setText("⏹ 停止并识别");
             result.removeAllViews();
             OfflineAsrEngine.listen(a.getApplicationContext(), new OfflineAsrEngine.Callback() {
                 @Override public void onStart() { }
 
-                @Override public void onLevel(float level) { }
+                @Override public void onLevel(float level) {
+                    long sec = (System.currentTimeMillis() - recStart) / 1000;
+                    int bars = (int) Math.min(10, level * 14);
+                    StringBuilder sb = new StringBuilder("正在录音 ");
+                    sb.append(sec).append("s  ");
+                    for (int i = 0; i < 10; i++) sb.append(i < bars ? '▮' : '▯');
+                    status.setText(sb.toString());
+                }
 
                 @Override public void onResult(String text) {
                     mic.setText("🎤 点一下，然后念");
@@ -419,8 +428,9 @@ public class SpeakView {
                     OfflineAsrEngine.stopListening();
                     return;
                 }
-                status.setText("正在听…");
-                mic.setText("⏹ 停止");
+                recStart = System.currentTimeMillis();
+                status.setText("正在录音 0s  ▯▯▯▯▯▯▯▯▯▯");
+                mic.setText("⏹ 停止并识别");
                 OfflineAsrEngine.listen(a.getApplicationContext(), new OfflineAsrEngine.Callback() {
                     @Override public void onStart() { }
 

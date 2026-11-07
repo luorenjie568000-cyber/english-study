@@ -30,6 +30,8 @@ import java.util.concurrent.Executors;
 public final class OfflineAsrEngine {
 
     public static final int SR = 16000;
+    /** 兜底上限：30 秒，正常由用户手动停止。 */
+    private static final long MAX_MS = 30000;
 
     public interface Callback {
         /** 录音开始。 */
@@ -193,7 +195,6 @@ public final class OfflineAsrEngine {
         int totalSamples = 0;
         float maxRms = 0;
         short[] buf = new short[1600]; // 100ms
-        int silenceRun = 0;
         long started = System.currentTimeMillis();
         try {
             ar.startRecording();
@@ -213,12 +214,8 @@ public final class OfflineAsrEngine {
                 final float lvl = Math.min(1f, rms * 8f);
                 post(cb, () -> cb.onLevel(lvl));
 
-                if (rms < 0.012f) silenceRun += n;
-                else silenceRun = 0;
-
-                if (totalSamples > SR * 4) break;               // 最长 4 秒
-                if (silenceRun > SR * 1.2 && totalSamples > SR / 3) break; // 静音收尾
-                if (System.currentTimeMillis() - started > 12000) break;
+                // 只做电平上报，不自动截断：由用户点「停止」才结束
+                if (System.currentTimeMillis() - started > MAX_MS) break;  // 兜底上限
             }
         } catch (Throwable e) {
             postErr(cb, "录音失败");

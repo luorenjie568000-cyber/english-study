@@ -233,20 +233,49 @@ public class StudyActivity extends Activity {
         }
         body.addView(defCard);
 
-        // 例句
+        // 例句（中文默认隐藏，点一下全展开）
         Sentences.load(this);
-        List<String> ex = Sentences.of(card.w);
+        List<Sentences.Item> ex = Sentences.items(card.w);
         if (!ex.isEmpty()) {
             body.addView(U.spacer(this, 10));
             LinearLayout exCard = U.card(this);
-            exCard.addView(U.bold(this, "例句", 12, getColor(R.color.text_dim2)));
-            for (String s : ex) {
-                TextView t = U.tv(this, s, 14, getColor(R.color.text));
-                t.setPadding(0, U.px(this, 8), 0, 0);
-                t.setLineSpacing(U.dp(this, 4), 1f);
-                t.setOnClickListener(v -> Tts.say(this, s));
-                exCard.addView(t);
-            }
+
+            LinearLayout exHead = U.row(this);
+            exHead.addView(U.bold(this, "例句", 12, getColor(R.color.text_dim2)), U.weight(1));
+            final boolean[] zhOn = {Store.getInt("ex.zh", 0) == 1};
+            TextView zhBtn = U.tv(this, zhOn[0] ? "隐藏中文" : "看中文", 12,
+                    getColor(R.color.primary));
+            zhBtn.setPadding(U.px(this, 8), U.px(this, 2), U.px(this, 8), U.px(this, 2));
+            zhBtn.setBackgroundResource(R.drawable.bg_pill);
+            exHead.addView(zhBtn);
+            exCard.addView(exHead);
+
+            LinearLayout exBody = U.col(this);
+            exCard.addView(exBody);
+            final Runnable rebuild = () -> {
+                exBody.removeAllViews();
+                for (Sentences.Item it : ex) {
+                    TextView t = U.tv(this, it.en, 14, getColor(R.color.text));
+                    t.setPadding(0, U.px(this, 8), 0, 0);
+                    t.setLineSpacing(U.dp(this, 4), 1f);
+                    t.setOnClickListener(v -> Tts.say(this, it.en));
+                    exBody.addView(t);
+                    if (zhOn[0]) {
+                        TextView z = U.tv(this, it.hasZh() ? it.zh : "（暂无译文）", 12,
+                                getColor(it.hasZh() ? R.color.text_dim : R.color.text_dim2));
+                        z.setPadding(0, U.px(this, 3), 0, 0);
+                        z.setLineSpacing(U.dp(this, 3), 1f);
+                        exBody.addView(z);
+                    }
+                }
+            };
+            rebuild.run();
+            zhBtn.setOnClickListener(v -> {
+                zhOn[0] = !zhOn[0];
+                Store.putInt("ex.zh", zhOn[0] ? 1 : 0);
+                zhBtn.setText(zhOn[0] ? "隐藏中文" : "看中文");
+                rebuild.run();
+            });
             body.addView(exCard);
         }
 
@@ -327,6 +356,12 @@ public class StudyActivity extends Activity {
         TextView back = U.primaryButton(this, "回到首页");
         back.setOnClickListener(v -> finish());
         body.addView(back);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Tts.stop();
     }
 
     @Override
