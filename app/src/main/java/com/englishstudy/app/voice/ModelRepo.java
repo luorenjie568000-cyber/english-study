@@ -108,7 +108,7 @@ public final class ModelRepo {
     public static Pack ttsLessac() {
         Pack p = new Pack(KIND_TTS, "vits-lessac", "英文男声 Lessac（VITS 63MB）", "vits-lessac");
         p.add("model.onnx", HF + "vits-piper-en_US-lessac-medium/resolve/main/en_US-lessac-medium.onnx", 63201425L);
-        p.add("tokens.txt", HF + "vits-piper-en_US-lessac-medium/resolve/main/tokens.txt", 763L);
+        p.add("tokens.txt", HF + "vits-piper-en_US-lessac-medium/resolve/main/tokens.txt", 921L);
         return p;
     }
 
@@ -168,6 +168,26 @@ public final class ModelRepo {
             }
         }
         return n;
+    }
+
+    /** renameTo 在部分机型上会静默失败，退回流式复制。 */
+    static boolean moveTo(File src, File dst) {
+        if (dst.exists()) dst.delete();
+        if (src.renameTo(dst)) return true;
+        try {
+            InputStream in = new java.io.FileInputStream(src);
+            OutputStream out = new FileOutputStream(dst);
+            byte[] buf = new byte[131072];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            out.close();
+            in.close();
+            if (dst.length() != src.length()) return false;
+            src.delete();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     static File partFile(Context c, Pack p, String name) {
@@ -251,8 +271,7 @@ public final class ModelRepo {
             File tmp = partFile(c, p, part.name);
             long have = tmp.exists() ? tmp.length() : 0;
             if (part.size > 0 && have == part.size) {
-                if (dst.exists()) dst.delete();
-                tmp.renameTo(dst);
+                if (!moveTo(tmp, dst)) throw new IOException("落盘失败 " + part.name);
                 continue;
             }
             HttpURLConnection conn = (HttpURLConnection) new URL(part.url).openConnection();
@@ -295,8 +314,7 @@ public final class ModelRepo {
             if (part.size > 0 && tmp.length() != part.size) {
                 throw new IOException("大小不符 " + part.name + " " + tmp.length() + "/" + part.size);
             }
-            if (dst.exists()) dst.delete();
-            if (!tmp.renameTo(dst)) throw new IOException("落盘失败 " + part.name);
+            if (!moveTo(tmp, dst)) throw new IOException("落盘失败 " + part.name);
             if (cb != null) cb.onProgress(doneBytes(c, p), total);
         }
     }

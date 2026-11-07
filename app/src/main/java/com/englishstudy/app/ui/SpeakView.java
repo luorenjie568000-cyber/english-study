@@ -37,6 +37,8 @@ public class SpeakView {
     private LinearLayout root;
     private int tab;                    // 0 跟读 / 1 场景
     private String target = Scenes.SHADOW[0][1];
+    private TextView targetTv;          // 练习句展示，选句时原地更新不重建页面
+    private ScrollView scroll;
 
     // 场景态
     private Scenes.Scene scene;
@@ -49,6 +51,7 @@ public class SpeakView {
 
     public View build() {
         ScrollView sv = new ScrollView(a);
+        scroll = sv;
         root = U.col(a);
         int p = U.px(a, 16);
         root.setPadding(p, p, p, U.px(a, 24));
@@ -112,7 +115,8 @@ public class SpeakView {
                 t.setPadding(U.px(a, 2), U.px(a, 8), U.px(a, 2), U.px(a, 8));
                 t.setOnClickListener(v -> {
                     target = s;
-                    render();
+                    if (targetTv != null) targetTv.setText(s);
+                    if (scroll != null) scroll.smoothScrollTo(0, U.px(a, 560));
                 });
                 pick.addView(t);
             }
@@ -127,6 +131,7 @@ public class SpeakView {
         TextView tgt = U.tv(a, target, 17, a.getColor(R.color.text));
         tgt.setLineSpacing(U.dp(a, 5), 1f);
         box.addView(tgt);
+        targetTv = tgt;
 
         EditText custom = new EditText(a);
         custom.setHint("也可以粘贴任意一句英文…");
@@ -142,7 +147,7 @@ public class SpeakView {
             String s = custom.getText().toString().trim();
             if (!s.isEmpty()) {
                 target = s;
-                render();
+                if (targetTv != null) targetTv.setText(s);
             }
         });
         box.addView(use);

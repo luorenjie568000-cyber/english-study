@@ -251,7 +251,7 @@ public final class OfflineAsrEngine {
             st.acceptWaveform(pcm, SR);
             rec.decode(st);
             OfflineRecognizerResult r = rec.getResult(st);
-            if (r != null && r.getText() != null) text = r.getText().trim();
+            if (r != null && r.getText() != null) text = clean(r.getText());
             st.release();
         } catch (Throwable e) {
             postErr(cb, "识别失败");
@@ -298,7 +298,7 @@ public final class OfflineAsrEngine {
             st.acceptWaveform(pcm, sr);
             rec.decode(st);
             OfflineRecognizerResult r = rec.getResult(st);
-            String text = r == null || r.getText() == null ? "" : r.getText().trim();
+            String text = r == null || r.getText() == null ? "" : clean(r.getText());
             st.release();
             return text;
         } catch (Throwable e) {
@@ -307,6 +307,17 @@ public final class OfflineAsrEngine {
     }
 
     // ------------------------------------------------------------ 评分
+
+    /** 去掉 Whisper 的占位标记（[BLANK_AUDIO]、[MUSIC]、(笑声) 等）。 */
+    public static String clean(String s) {
+        if (s == null) return "";
+        String t = s.replaceAll("\\[[^\\]]*\\]", " ")
+                .replaceAll("\\([^)]{0,20}\\)", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (t.equalsIgnoreCase("blank_audio")) return "";
+        return t;
+    }
 
     /** 归一化：小写、去标点、压空白。 */
     public static String norm(String s) {
