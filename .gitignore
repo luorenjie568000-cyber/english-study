@@ -1,0 +1,7 @@
+# 生成物与大文件
+*.csv
+*.class
+*.apk
+*.zip
+*.aar
+tools/es.keystore
