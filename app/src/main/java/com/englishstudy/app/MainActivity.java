@@ -15,6 +15,7 @@ import com.englishstudy.app.data.Dict;
 import com.englishstudy.app.data.Sentences;
 import com.englishstudy.app.data.Translate;
 import com.englishstudy.app.data.Vocab;
+import com.englishstudy.app.ui.ChatView;
 import com.englishstudy.app.ui.HomeView;
 import com.englishstudy.app.ui.ReadView;
 import com.englishstudy.app.ui.SpeakView;
@@ -31,7 +32,7 @@ import com.englishstudy.app.voice.OfflineTtsEngine;
 /** 主界面：底部标签，内容区用原生 View 切换。 */
 public class MainActivity extends Activity {
 
-    public static final String[] TABS = {"学习", "口语", "词汇", "翻译", "写作", "音标", "阅读", "我的"};
+    public static final String[] TABS = {"学习", "口语", "词汇", "对话", "翻译", "写作", "音标", "阅读", "我的"};
 
     private FrameLayout content;
     private LinearLayout bar;
@@ -61,7 +62,7 @@ public class MainActivity extends Activity {
             final int idx = i;
             TextView t = new TextView(this);
             t.setText(TABS[i]);
-            t.setTextSize(11);
+            t.setTextSize(TABS.length > 8 ? 10 : 11);
             t.setGravity(Gravity.CENTER);
             t.setTypeface(Typeface.DEFAULT_BOLD);
             t.setOnClickListener(v -> select(idx));
@@ -111,12 +112,14 @@ public class MainActivity extends Activity {
             case 2:
                 return new VocabView(this).build();
             case 3:
-                return new TransView(this).build();
+                return new ChatView(this).build();
             case 4:
-                return new WriteView(this).build();
+                return new TransView(this).build();
             case 5:
-                return new IpaView(this).build();
+                return new WriteView(this).build();
             case 6:
+                return new IpaView(this).build();
+            case 7:
                 return new ReadView(this).build();
             default:
                 return new MineView(this).build();

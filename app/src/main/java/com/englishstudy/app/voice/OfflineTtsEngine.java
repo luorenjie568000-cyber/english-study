@@ -29,7 +29,15 @@ public final class OfflineTtsEngine {
 
     private static OfflineTts tts;
     private static String voiceId = "";
-    private static boolean loading;
+    private static volatile boolean loading;
+    /**
+     * 每次切换音色 +1。
+     *
+     * 旧版本没有这个：切音色时 shutdown() 只 release 了对象，POOL 里排队的合成任务
+     * 仍然会跑，而且 loading 标志没重置导致下一次 init 直接 return，
+     * 结果就是「切了男声但听到的还是女声」。所有异步任务都要先核对 generation。
+     */
+    private static volatile int generation = 0;
     private static boolean failed;
     private static float rate = 0.92f;
 
@@ -51,22 +59,19 @@ public final class OfflineTtsEngine {
     // ------------------------------------------------------------ 加载
 
     public static synchronized void init(Context c) {
-        if (tts != null || loading) return;
-        loading = true;
+        if (tts != null) return;
         final Context app = c.getApplicationContext();
+        final int gen = generation;
+        loading = true;
+        failed = false;
         POOL.execute(() -> {
+            OfflineTts loaded = null;
+            String id = "";
             try {
-                // 音色由设置决定（voice.tts = amy | lessac），没装的那个自动退到另一个
-                String want = com.englishstudy.app.data.Store.get("voice.tts", "amy");
-                ModelRepo.Pack pack = "lessac".equals(want)
-                        ? ModelRepo.ttsLessac() : ModelRepo.ttsAmi();
-                if (!ModelRepo.ready(app, pack)) {
-                    pack = "lessac".equals(want)
-                            ? ModelRepo.ttsAmi() : ModelRepo.ttsLessac();
-                }
-                if (!ModelRepo.ready(app, pack)) {
-                    failed = true;
-                    loading = false;
+                ModelRepo.Pack pack = ModelRepo.packFor(app,
+                        com.englishstudy.app.data.Store.get("voice.tts", "amy"));
+                if (pack == null) {
+                    if (gen == generation) failed = true;
                     return;
                 }
                 ModelRepo.ensureEspeak(app);
@@ -95,22 +100,37 @@ public final class OfflineTtsEngine {
                 cfg.setMaxNumSentences(1);
                 cfg.setSilenceScale(0.2f);
 
-                // AssetManager 传 null → 走文件路径
                 OfflineTts t = new OfflineTts(null, cfg);
                 if (t.sampleRate() <= 0) {
-                    failed = true;
                     try {
                         t.release();
                     } catch (Throwable ignored) {
                     }
                 } else {
-                    tts = t;
-                    voiceId = pack.id;
+                    loaded = t;
+                    id = pack.id;
                 }
             } catch (Throwable e) {
-                failed = true;
+                loaded = null;
             } finally {
                 loading = false;
+            }
+
+            // 期间用户又切了音色 → 这个刚加载的作废
+            if (gen != generation) {
+                if (loaded != null) {
+                    try {
+                        loaded.release();
+                    } catch (Throwable ignored) {
+                    }
+                }
+                return;
+            }
+            if (loaded != null) {
+                tts = loaded;
+                voiceId = id;
+            } else {
+                failed = true;
             }
         });
     }
@@ -152,16 +172,25 @@ public final class OfflineTtsEngine {
         final Context app = c.getApplicationContext();
         if (tts == null) {
             init(app);
+            // 正在加载就别急着退系统 TTS：那会突然冒出另一个声音（这一直是
+            // 「切了男声却听到女声」的重要来源）。等一小会儿再念。
+            if (loading && !failed) {
+                MAIN.postDelayed(() -> say(app, t, r), 250);
+                return;
+            }
             diag("say text=" + t.length() + "ch engine=sys rate=" + r);
             sysSay(app, t);
             return;
         }
         stop();
         speaking.set(true);
+        final OfflineTts engine = tts;
+        final int gen = generation;
         POOL.execute(() -> {
             try {
+                if (engine == null || gen != generation) return;
                 long t0 = System.currentTimeMillis();
-                GeneratedAudio audio = tts.generate(t, 0, 1.0f / r);
+                GeneratedAudio audio = engine.generate(t, 0, 1.0f / r);
                 if (audio == null) {
                     diag("say gen=null");
                     return;
@@ -385,6 +414,11 @@ public final class OfflineTtsEngine {
 
     public static void shutdown() {
         stop();
+        // 作废所有排队中的合成任务，并允许下一次 init 重新加载
+        generation++;
+        loading = false;
+        failed = false;
+        voiceId = "";
         if (tts != null) {
             try {
                 tts.release();

@@ -93,3 +93,18 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
   不再用 espeak 合成；塞擦音 tʃ/dʒ 由真实爆破段 + 真实擦音拼合
 - 音色设置真正生效：`voice.tts` 决定加载 Amy 还是 Lessac（之前永远优先 Amy）
 - 新增 `tools/build_ipa.py` 与 `assets/ipa/SOURCE.md`（来源与处理流程）
+
+### v4.3（2026-11-07 夜）
+- 新增「对话」标签：学伴 Agent
+  - 未配置接口时走 `OfflineTutor` 纯离线（查词 / 翻译 / 批改 / 看复习）
+  - 配置任意 OpenAI 兼容接口后，模型可调用 4 个本地工具：
+    `lookup_word`、`translate_sentence`、`add_to_vocab`、`due_words`
+  - 工具全部在手机上执行，只有对话文本发给模型
+  - 设置入口在页面右上角「设置」，Key 只存本机 SharedPreferences
+- **修复音色切换串音**：`OfflineTtsEngine` 增加 `generation` 代际号，
+  `shutdown()` 会作废所有排队的合成任务并重置 `loading`；
+  `say()` 在引擎加载中不再退回系统 TTS（那正是「切了男声却听到女声」的来源）；
+  切换后界面会等 `loadedVoice()` 真的变成目标音色再念示例句
+- 修复 `Agent` 的 `tool_call_id` 协议：tool 消息必须回带对应 id，assistant 的
+  `tool_calls` 必须原样保留，否则接口直接 400 或返回空
+- Manifest 加 `usesCleartextTraffic=true`（本地/Ollama 常是 http）

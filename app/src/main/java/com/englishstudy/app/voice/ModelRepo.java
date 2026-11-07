@@ -134,6 +134,18 @@ public final class ModelRepo {
         return p;
     }
 
+    /**
+     * 按音色 id 找包：优先要的那个，没下载就退另一个，都没有返回 null。
+     * 这样上层不用重复写兜底逻辑，也不会出现「想切男声但悄悄用了女声还不说」。
+     */
+    public static Pack packFor(Context c, String want) {
+        Pack first = "lessac".equals(want) ? ttsLessac() : ttsAmi();
+        Pack other = "lessac".equals(want) ? ttsAmi() : ttsLessac();
+        if (ready(c, first)) return first;
+        if (ready(c, other)) return other;
+        return null;
+    }
+
     public static List<Pack> all() {
         List<Pack> l = new ArrayList<>();
         l.add(ttsAmi());

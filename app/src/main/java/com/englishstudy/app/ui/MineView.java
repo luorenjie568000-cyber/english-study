@@ -47,7 +47,7 @@ public class MineView {
         root.addView(dataCard());
         root.addView(U.spacer(a, 20));
 
-        TextView ver = U.tv(a, "English Study · 原生版 v4.2\n"
+        TextView ver = U.tv(a, "English Study · 原生版 v4.3\n"
                 + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, a.getColor(R.color.text_dim2));
         ver.setGravity(Gravity.CENTER);
         ver.setLineSpacing(U.dp(a, 4), 1f);
@@ -222,25 +222,34 @@ public class MineView {
                         return;
                     }
                     Store.put("voice.tts", id);
+                    // 先彻底停掉旧引擎（shutdown 会作废所有排队中的合成任务），
+                    // 再重新加载，否则旧模型正在念的那句会插进来，听起来像两个声音
                     Tts.shutdown();
                     Tts.init(a);
                     ((MainActivity) a).refresh();
 
-                    // 模型加载是异步的，等它就绪再念示例句，否则会退到系统 TTS
                     final android.os.Handler h =
                             new android.os.Handler(android.os.Looper.getMainLooper());
-                    final long deadline = System.currentTimeMillis() + 15000;
-                    final Runnable[] trySay = new Runnable[1];
-                    trySay[0] = () -> {
-                        boolean ok = com.englishstudy.app.voice.OfflineTtsEngine.ready();
+                    final long deadline = System.currentTimeMillis() + 20000;
+                    final Runnable[] wait = new Runnable[1];
+                    wait[0] = () -> {
+                        String cur = com.englishstudy.app.voice.OfflineTtsEngine.loadedVoice();
+                        String want = "vits-" + ("lessac".equals(id) ? "lessac" : "amy");
+                        boolean ok = want.equals(cur);
                         boolean bad = com.englishstudy.app.voice.OfflineTtsEngine.unavailable();
-                        if (ok || bad || System.currentTimeMillis() > deadline) {
+                        if (ok) {
                             Tts.say(a, "This is how I sound now.");
-                        } else {
-                            h.postDelayed(trySay[0], 400);
+                            return;
                         }
+                        if (bad || System.currentTimeMillis() > deadline) {
+                            android.widget.Toast.makeText(a,
+                                    "这个音色的模型没装好，暂时还是原来的声音",
+                                    android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        h.postDelayed(wait[0], 300);
                     };
-                    h.postDelayed(trySay[0], 400);
+                    h.postDelayed(wait[0], 300);
                 })
                 .show();
     }
