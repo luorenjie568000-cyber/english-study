@@ -119,7 +119,7 @@ public class WriteView {
         row.addView(U.hspacer(a, 16));
 
         LinearLayout info = U.col(a);
-        info.addView(U.bold(a, r.verdict, 15, a.getColor(scoreColor(r.score))));
+        info.addView(U.bold(a, r.verdict, 15, scoreColor(r.score)));
         info.addView(U.spacer(a, 6));
         info.addView(U.tv(a, r.words + " 词 · " + r.sentences + " 句 · 均 "
                 + r.avgLen + " 词/句", 12, a.getColor(R.color.text_dim2)));
@@ -222,6 +222,7 @@ public class WriteView {
         }
     }
 
+    /** 直接返回 ARGB，调用方不要再套 getColor（会把颜色值当资源 id）。 */
     private int scoreColor(int s) {
         return a.getColor(s >= 85 ? R.color.primary : s >= 65 ? R.color.warn : R.color.danger);
     }
