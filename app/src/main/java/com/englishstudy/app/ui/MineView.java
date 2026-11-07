@@ -18,7 +18,9 @@ import com.englishstudy.app.data.Translate;
 import com.englishstudy.app.data.Vocab;
 import com.englishstudy.app.engine.Card;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 /** 我的：统计 + 设置 + 数据管理。 */
 public class MineView {
@@ -40,6 +42,8 @@ public class MineView {
 
         root.addView(statsCard());
         root.addView(U.spacer(a, 14));
+        root.addView(chartCard());
+        root.addView(U.spacer(a, 14));
         root.addView(VoiceCard.build(a));
         root.addView(U.spacer(a, 14));
         root.addView(settingsCard());
@@ -47,7 +51,7 @@ public class MineView {
         root.addView(dataCard());
         root.addView(U.spacer(a, 20));
 
-        TextView ver = U.tv(a, "English Study · 原生版 v4.4\n"
+        TextView ver = U.tv(a, "English Study · 原生版 v4.5\n"
                 + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, a.getColor(R.color.text_dim2));
         ver.setGravity(Gravity.CENTER);
         ver.setLineSpacing(U.dp(a, 4), 1f);
@@ -81,6 +85,76 @@ public class MineView {
         return card;
     }
 
+    /** 两张图：未来 30 天到期量 + 稳定度分布。 */
+    private View chartCard() {
+        LinearLayout card = U.card(a);
+        card.addView(U.bold(a, "学习曲线", 15, a.getColor(R.color.text)));
+        card.addView(U.spacer(a, 4));
+        card.addView(U.tv(a, "未来 30 天每天到期的词数", 11,
+                a.getColor(R.color.text_dim2)));
+        card.addView(U.spacer(a, 8));
+
+        long now = System.currentTimeMillis();
+        long dayStart = dayStart();
+        float[] due = new float[30];
+        String[] labels = new String[30];
+        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("M/d",
+                java.util.Locale.US);
+        for (int i = 0; i < 30; i++) {
+            long from = dayStart + i * 86400000L;
+            long to = from + 86400000L;
+            int n = 0;
+            for (Card c : Vocab.all()) {
+                if (c.next >= from && c.next < to) n++;
+            }
+            due[i] = n;
+            labels[i] = df.format(new java.util.Date(from));
+        }
+        Charts.BarChart bars = new Charts.BarChart(a);
+        bars.setData(due, labels);
+        card.addView(bars);
+
+        card.addView(U.spacer(a, 12));
+        card.addView(U.tv(a, "稳定度分布（越往右记得越牢）", 11,
+                a.getColor(R.color.text_dim2)));
+        card.addView(U.spacer(a, 8));
+
+        // 把稳定度分 10 档，统计每档多少词
+        int[] bins = new int[10];
+        for (Card c : Vocab.all()) {
+            int b = (int) Math.min(9, Math.max(0, Math.floor(Math.log10(Math.max(0.1, c.s)) + 1) * 3));
+            bins[b]++;
+        }
+        List<Float> curve = new ArrayList<>();
+        for (int b : bins) curve.add((float) b);
+        Charts.LineChart line = new Charts.LineChart(a);
+        line.setData(curve);
+        card.addView(line);
+        return card;
+    }
+
+    private void exportCsv() {
+        try {
+            java.io.File f = com.englishstudy.app.data.Export.csv(a);
+            toast("已导出到 " + f.getAbsolutePath());
+        } catch (Throwable e) {
+            toast("导出失败：" + e.getMessage());
+        }
+    }
+
+    private void exportJson() {
+        try {
+            java.io.File f = com.englishstudy.app.data.Export.json(a);
+            toast("已导出到 " + f.getAbsolutePath());
+        } catch (Throwable e) {
+            toast("导出失败：" + e.getMessage());
+        }
+    }
+
+    private void toast(String m) {
+        android.widget.Toast.makeText(a, m, android.widget.Toast.LENGTH_LONG).show();
+    }
+
     private View stat(String label, String value, int colorRes) {
         LinearLayout col = U.col(a);
         col.setGravity(Gravity.CENTER);
@@ -105,6 +179,19 @@ public class MineView {
         card.addView(divider());
         card.addView(switchRow("朗读音色", voiceLabel(), v -> pickVoice()));
         card.addView(divider());
+        card.addView(switchRow("每日新词上限", Store.getInt("limit.new", 30) + " 词",
+                v -> pickLimit("limit.new", new int[]{10, 20, 30, 50, 80, 100})));
+        card.addView(divider());
+        card.addView(switchRow("每日复习上限", Store.getInt("limit.review", 200) + " 词",
+                v -> pickLimit("limit.review", new int[]{50, 100, 150, 200, 300})));
+        card.addView(divider());
+        card.addView(switchRow("克漏字挖空", Store.getInt("cloze", 1) == 1 ? "开" : "关",
+                v -> {
+                    boolean on = Store.getInt("cloze", 1) != 1;
+                    Store.putInt("cloze", on ? 1 : 0);
+                    ((MainActivity) a).refresh();
+                }));
+        card.addView(divider());
         card.addView(switchRow("例句中文", Store.getInt("ex.zh", 0) == 1 ? "显示" : "隐藏",
                 v -> {
                     boolean on = Store.getInt("ex.zh", 0) != 1;
@@ -128,6 +215,23 @@ public class MineView {
                 ? Translate.pairCount() + " 句" : "加载中…"));
         card.addView(divider());
         card.addView(kvRow("翻译历史", History.size() + " 条"));
+
+        card.addView(divider());
+        LinearLayout exp = U.row(a);
+        exp.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
+        exp.setOnClickListener(v -> exportCsv());
+        exp.addView(U.tv(a, "导出 CSV（Excel 可开）", 14, a.getColor(R.color.primary)),
+                U.weight(1));
+        exp.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+        card.addView(exp);
+        card.addView(divider());
+        LinearLayout expJ = U.row(a);
+        expJ.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
+        expJ.setOnClickListener(v -> exportJson());
+        expJ.addView(U.tv(a, "导出 JSON（含完整调度状态）", 14, a.getColor(R.color.primary)),
+                U.weight(1));
+        expJ.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+        card.addView(expJ);
 
         card.addView(divider());
         LinearLayout reset = U.row(a);
@@ -177,6 +281,16 @@ public class MineView {
                 .setItems(items, (d, i) -> {
                     Store.putInt("rate", vals[i]);
                     Tts.setRate(vals[i] / 100f);
+                    ((MainActivity) a).refresh();
+                }).show();
+    }
+
+    private void pickLimit(String key, int[] vals) {
+        String[] items = new String[vals.length];
+        for (int i = 0; i < vals.length; i++) items[i] = vals[i] + " 词";
+        new AlertDialog.Builder(a).setTitle("上限")
+                .setItems(items, (d, i) -> {
+                    Store.putInt(key, vals[i]);
                     ((MainActivity) a).refresh();
                 }).show();
     }

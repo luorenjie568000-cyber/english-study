@@ -75,6 +75,15 @@ public class HomeView {
 
         root.addView(U.spacer(a, 14));
 
+        // 打卡热力图（连续天数是留存的核心指标，放首页）
+        LinearLayout streakCard = U.card(a);
+        streakCard.addView(U.bold(a, "打卡", 13, a.getColor(R.color.text_dim)));
+        streakCard.addView(U.spacer(a, 10));
+        streakCard.addView(HeatmapView.summary(a, null));
+        root.addView(streakCard);
+
+        root.addView(U.spacer(a, 14));
+
         // 主操作
         LinearLayout actions = U.row(a);
         TextView review = U.primaryButton(a, "开始复习" + (due > 0 ? " · " + due : ""));

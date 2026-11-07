@@ -106,7 +106,8 @@ public class StudyActivity extends Activity {
         long now = System.currentTimeMillis();
 
         if (mode == MODE_REVIEW) {
-            queue.addAll(Vocab.due(now, 30));
+            int cap = Math.max(5, Store.getInt("limit.review", 200));
+            queue.addAll(Vocab.due(now, cap));
             if (queue.isEmpty()) {
                 Toast.makeText(this, "没有到期的词，去学新词吧", Toast.LENGTH_SHORT).show();
                 finish();
@@ -132,7 +133,7 @@ public class StudyActivity extends Activity {
             Store.putInt("book_offset_" + tag, offset + 20);
         }
 
-        int want = Store.getInt("goal", 30);
+        int want = Math.min(Store.getInt("goal", 30), Store.getInt("limit.new", 30));
         for (String w : candidates) {
             if (queue.size() >= Math.max(10, want)) break;
             if (Vocab.get(w) != null) continue;
@@ -236,6 +237,36 @@ public class StudyActivity extends Activity {
         // 例句（中文默认隐藏，点一下全展开）
         Sentences.load(this);
         List<Sentences.Item> ex = Sentences.items(card.w);
+
+        // 克漏字：先只看挖空句，自己回想该填什么，再点开对照
+        boolean clozeOn = Store.getInt("cloze", 1) == 1;
+        if (clozeOn && !ex.isEmpty()) {
+            body.addView(U.spacer(this, 10));
+            LinearLayout cz = U.card(this);
+            cz.addView(U.bold(this, "克漏字 · 空里该填什么", 12,
+                    getColor(R.color.text_dim2)));
+            cz.addView(U.spacer(this, 8));
+            int n = Math.min(2, ex.size());
+            for (int i = 0; i < n; i++) {
+                TextView t = U.tv(this, cloze(ex.get(i).en, card.w), 15,
+                        getColor(R.color.text));
+                t.setLineSpacing(U.dp(this, 5), 1f);
+                t.setPadding(0, U.px(this, 6), 0, U.px(this, 6));
+                final String full = ex.get(i).en;
+                t.setOnClickListener(v -> {
+                    if (t.getText().toString().contains("____")) {
+                        t.setText(full);
+                        t.setTextColor(getColor(R.color.accent));
+                    } else {
+                        t.setText(cloze(full, card.w));
+                        t.setTextColor(getColor(R.color.text));
+                    }
+                });
+                cz.addView(t);
+            }
+            cz.addView(U.tv(this, "点句子看答案", 10, getColor(R.color.text_dim2)));
+            body.addView(cz);
+        }
         if (!ex.isEmpty()) {
             body.addView(U.spacer(this, 10));
             LinearLayout exCard = U.card(this);
@@ -315,10 +346,53 @@ public class StudyActivity extends Activity {
         gradeBar.setVisibility(android.view.View.VISIBLE);
     }
 
+    /** 把例句里的目标词（含变形）换成下划线，做克漏字。 */
+    private String cloze(String sentence, String word) {
+        if (sentence == null || word == null || word.isEmpty()) return sentence;
+        String lower = sentence.toLowerCase(java.util.Locale.US);
+        String w = word.toLowerCase(java.util.Locale.US);
+
+        // 先精确匹配，再试常见变形
+        String[] forms = {w, w + "s", w + "es", w + "ed", w + "d", w + "ing",
+                w + "'s", w + "er", w + "est"};
+        for (String f : forms) {
+            int idx = indexOfWord(lower, f);
+            if (idx >= 0) {
+                return sentence.substring(0, idx) + "____"
+                        + sentence.substring(idx + f.length());
+            }
+        }
+        // 词形还原后匹配（gave -> give 这类靠 lemma，这里做简单截断兜底）
+        String base = Dict.lemmaOf(w);
+        if (base != null && !base.equals(w)) {
+            int idx = indexOfWord(lower, base);
+            if (idx >= 0) {
+                return sentence.substring(0, idx) + "____"
+                        + sentence.substring(idx + base.length());
+            }
+        }
+        return sentence;
+    }
+
+    /** 只在词边界上匹配，避免 "in" 命中 "interesting"。 */
+    private int indexOfWord(String text, String word) {
+        int from = 0;
+        while (true) {
+            int i = text.indexOf(word, from);
+            if (i < 0) return -1;
+            boolean leftOk = i == 0 || !Character.isLetter(text.charAt(i - 1));
+            int end = i + word.length();
+            boolean rightOk = end >= text.length() || !Character.isLetter(text.charAt(end));
+            if (leftOk && rightOk) return i;
+            from = i + 1;
+        }
+    }
+
     private void applyGrade(int g) {
         long now = System.currentTimeMillis();
         Review.apply(card, g, now);
         Vocab.put(card);
+        com.englishstudy.app.data.Streak.mark(1);
         if (g == 1) {
             wrong++;
             if (index < queue.size() - 1) queue.add(card);   // 塞回队尾再看一次

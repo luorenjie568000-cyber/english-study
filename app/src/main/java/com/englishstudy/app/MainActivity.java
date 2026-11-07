@@ -74,6 +74,12 @@ public class MainActivity extends Activity {
         setContentView(root);
         select(0);
 
+        // 首次启动：定目标 → 选词书 → 立刻开始第一组
+        if (com.englishstudy.app.ui.Onboarding.needed()) {
+            getWindow().getDecorView().postDelayed(
+                    () -> com.englishstudy.app.ui.Onboarding.show(this, this::refresh), 300);
+        }
+
         // 语音引擎预热：模型在盘上就直接加载，不必等用户进「我的」页
         Tts.init(this);
         new Thread(() -> {

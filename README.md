@@ -128,3 +128,17 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 3. 把整段词典条目塞进 user 会让 1.5B **在第 1 个 token 就停**；
    干净短 prompt 下同一模型能稳定输出 60 token
 4. `-source 8` 编译，正则里的 `\s` 在 Java 字符串里要写 `\\s`，否则被当 text block 报错
+
+### v4.5（2026-11-07 深夜）
+补齐竞品分析 §14 里漏掉的 P0/P1 项：
+
+| 项 | 来源 | 实现 |
+|---|---|---|
+| 打卡日历 + 连续天数 | P0-5 | `Streak` + `HeatmapView`，首页 8 周热力图，大字号连续天数 |
+| 每日新词/复习上限 | P0-4 | 我的页可调（新词 10–100，复习 50–300） |
+| 克漏字（Cloze） | P0-7 | 释义下方把例句里的目标词挖成 `____`，点句子看答案 |
+| 统计图表 | P1-5 | 未来 30 天到期柱状图 + 稳定度分布折线图（纯自绘） |
+| 导出 CSV / JSON | P1-11 | 我的页两个按钮，CSV 带 BOM 可直接用 Excel 打开 |
+| 首启引导 | P0-8 | 定目标 → 选词书 → 立刻开始第一组（照 Duolingo 的顺序） |
+
+顺带：`Streak.mark()` 挂在 `StudyActivity.applyGrade()` 里，复习一次记一次。
