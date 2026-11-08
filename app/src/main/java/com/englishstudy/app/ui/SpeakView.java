@@ -47,6 +47,7 @@ public class SpeakView {
     private final List<String[]> sceneLog = new ArrayList<>();  // {你, 命中率}
     private ChatView chat;   // 懒加载：字段初始化时 a 还没赋值
     private IpaView ipa;     // 同样懒加载
+    private AudioPanel audio;
 
     public SpeakView(Activity a) {
         this.a = a;
@@ -106,6 +107,13 @@ public class SpeakView {
         else ipaPanel();
     }
 
+    /** 由 MainActivity 转发音频文件选择结果。 */
+    public void onAudioFile(android.net.Uri uri) {
+        if (audio == null) audio = new AudioPanel(a);
+        audio.onAudioFile(uri);
+        render();
+    }
+
     private void saveTab() {
         com.englishstudy.app.data.Store.putInt("speak.tab", tab);
     }
@@ -120,11 +128,37 @@ public class SpeakView {
         return t;
     }
 
+    /** 音频跟读：导入 mp3/wav，A/B 循环 + 录音对比。 */
+    private void audioPanel() {
+        if (audio == null) audio = new AudioPanel(a);
+        root.addView(audio.build(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+    }
+
     /** 音标：复用 IpaView（44 个音素，点音标听单音）。 */
     private void ipaPanel() {
-        if (ipa == null) ipa = new IpaView(a);
+        if (ipa == null) {
+            ipa = new IpaView(a);
+            ipa.setOnAudio(this::openAudio);
+        }
         root.addView(ipa.build(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+    }
+
+    /** 音频跟读：从音标页底部的按钮进入（用弹窗，避免再挤一个 tab）。 */
+    private void openAudio() {
+        if (audio == null) audio = new AudioPanel(a);
+        LinearLayout box = U.col(a);
+        box.setPadding(U.px(a, 4), U.px(a, 4), U.px(a, 4), U.px(a, 4));
+        box.addView(audio.build(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (int) (a.getResources().getDisplayMetrics().heightPixels * 0.7)));
+        new android.app.AlertDialog.Builder(a)
+                .setTitle("音频跟读")
+                .setView(box)
+                .setPositiveButton("关闭", (d, w) -> audio.stopPlayer())
+                .setOnDismissListener(d -> audio.stopPlayer())
+                .show();
     }
 
     /** 对话：直接复用 ChatView 的界面（学伴 Agent）。 */

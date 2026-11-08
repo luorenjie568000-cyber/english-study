@@ -14,7 +14,17 @@ import java.util.List;
 /** 音标：44 个音素，可点朗读。 */
 public class IpaView {
 
+    /** 音频跟读入口回调（由 SpeakView 提供）。 */
+    public interface OnAudioEntry {
+        void onOpenAudio();
+    }
+
     private final Activity a;
+    private OnAudioEntry onAudio;
+
+    public void setOnAudio(OnAudioEntry l) {
+        this.onAudio = l;
+    }
 
     public IpaView(Activity a) {
         this.a = a;
@@ -38,8 +48,27 @@ public class IpaView {
         root.addView(U.spacer(a, 14));
         root.addView(section("辅音", Ipa.consonants()));
 
+        // 音频跟读入口
+        root.addView(U.spacer(a, 16));
+        LinearLayout entry = U.card(a);
+        entry.addView(U.bold(a, "音频跟读", 14, Theme.c(a, R.color.text)));
+        entry.addView(U.spacer(a, 4));
+        entry.addView(U.tv(a, "导入一段 mp3 / wav，A/B 循环反复听同一句，再录下来对比",
+                12, Theme.c(a, R.color.text_dim2)));
+        entry.addView(U.spacer(a, 10));
+        TextView go = U.primaryButton(a, "打开音频跟读");
+        go.setOnClickListener(v -> {
+            if (onAudio != null) onAudio.onOpenAudio();
+        });
+        entry.addView(go);
+        root.addView(entry);
+
         sv.addView(root);
         return sv;
+    }
+
+    private void openAudio() {
+        // 实际入口由 MainActivity 的口语页提供，这里只做跳转提示
     }
 
     private View section(String title, List<Ipa.Phone> phones) {

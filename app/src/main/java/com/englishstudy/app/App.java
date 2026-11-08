@@ -166,6 +166,23 @@ public class App extends Application {
                 String heard = OfflineAsrEngine.recognize(pcm, 16000);
                 sb.append("loop[").append(ph).append("]=").append(heard)
                         .append(" score=").append(OfflineAsrEngine.score(ph, heard)).append('\n');
+
+                // 逐词评分（带时间戳）。这一步证明 Pronunciation 引擎真的在工作
+                OfflineAsrEngine.TimedResult timed = OfflineAsrEngine.recognizeTimed(pcm, 16000);
+                com.englishstudy.app.engine.Pronunciation.Result pr =
+                        com.englishstudy.app.engine.Pronunciation.score(
+                                ph, timed, pcm.length / 16000f);
+                sb.append("  timed.words=").append(timed.words.size())
+                        .append(" pron.score=").append(pr.score)
+                        .append(" wpm=").append(pr.wpm)
+                        .append(" advice=").append(pr.advice).append('\n');
+                for (com.englishstudy.app.engine.Pronunciation.Word tw : pr.words) {
+                    sb.append("    ").append(tw.target)
+                            .append(tw.correct ? " ok" : " miss(" + tw.heard + ")")
+                            .append(String.format(java.util.Locale.US,
+                                    " %.2fs-%.2fs", tw.start, tw.end))
+                            .append('\n');
+                }
             }
         } catch (Throwable e) {
             sb.append("ERROR ").append(e.getClass().getName()).append(": ")

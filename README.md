@@ -558,3 +558,56 @@ iOS 的 `UIGlassEffect` 在低端设备上也是这么降级的。
 Android **有**能力做逐帧实时真模糊，但 `RenderNode.setBackdropRenderEffect()`
 （一行代码的 behind-blur）是 **`@hide`**。hwui 层早已具备（`setBackdropImageFilter`），
 只是没给 App 用。这是 **API 暴露问题，不是硬件问题**。
+
+### v5.7（2026-11-08 下午）：三项 P1 功能
+
+## 1. 词根词缀（`data/WordRoot.java`）
+ECDICT 的 `wordroot.txt`（362KB，**611 个词根**）打进 assets。
+
+- **正查**：这个词出现在哪些词根的例词里（精确）
+- **反查**：按词根字符串做包含匹配 —— 前缀要求词首、后缀要求词尾、词根只要包含
+- 单词详情页新增「词根词缀」卡片
+
+真机验证：
+```
+international → 前缀 inter-  （同根：interact · interactive · intercalate · intercede）
+hopeless      → 后缀 -less   without（同根：aimless · airless · baseless · blameless）
+```
+
+## 2. 逐词发音评分（`engine/Pronunciation.java`）
+用 ASR 结果做**逐词对齐**，比原来的整句字符串相似度准得多：
+- 能指出**具体哪个词**念错了（红色标记）
+- 能算**语速**（词/分），判断念太快还是太慢
+- 能看出**停顿**在哪（间隔 > 0.5s）
+
+闭环验证（TTS 合成 → ASR → 评分）：
+```
+loop: "But weather is really nice today."
+  timed.words=7 pron.score=83 wpm=152 advice=大部分对，再顺一遍就更好了。
+    The miss(but)   weather ok  is ok  really ok  nice ok  today ok
+loop: "Can I have a cup of coffee, please?"
+  pron.score=100 wpm=166 advice=发音很准，节奏也对。
+```
+
+### 关于「音素级」的诚实说明
+**这不是音素级 GOP 对齐。** sherpa 的 `OfflineRecognizerResult.getTimestamps()`
+在 Whisper 模型上**全部返回 0**（实测），所以时间戳按词数均分时长估算。
+
+真正的音素级评分需要 wav2vec2 + 强制对齐（模型 300MB+），不在离线 App 的预算内。
+现在能做到的是「词级」：词对不对、快慢、停顿 —— 这已经覆盖了 80% 的跟读需求。
+**不能**判断「把 /θ/ 念成 /s/ 但识别成同一个词」这类音素级错误。
+
+## 3. 音频跟读（`data/AudioClip.java` + `ui/AudioPanel.java`）
+入口：口语 → 音标 → 底部「打开音频跟读」
+
+- 导入 mp3 / wav / m4a（MediaPlayer 读时长）
+- **A/B 循环**：手动设两个点，反复听那一段 —— 这是跟读最实用的形态
+- 分段拖动条 + 播放/暂停/回 A 点
+- **录音对比**：录一句，ASR 识别出你念的内容，和音频对照
+
+### 为什么不做自动逐句切分
+需要「音频解码 → PCM → 静音检测 → 切分」，纯 Java 里要做完整解码器（Android 只给
+MediaPlayer/MediaCodec，前者不给 PCM，后者要自己处理容器格式）。而且对音乐类素材
+静音检测根本不准。**手动 A/B 反而更实用** —— 你知道要练哪一句。
+
+也不做波形可视化：那需要解码全部 PCM 进内存，一首 5 分钟的歌 = 50MB。

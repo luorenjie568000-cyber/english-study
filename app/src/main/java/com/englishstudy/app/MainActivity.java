@@ -144,7 +144,8 @@ public class MainActivity extends Activity {
             case 1:
                 return new VocabView(this).build();
             case 2:
-                return new SpeakView(this).build();
+                currentSpeak = new SpeakView(this);
+                return currentSpeak.build();
             case 3:
                 return new WriteView(this).build();
             case 4:
@@ -197,7 +198,9 @@ public class MainActivity extends Activity {
                 // 直接找 MineView 的实例不可行，改为通过标签索引判断
             }
         }
-        if (requestCode == 0x91) {
+        if (requestCode == 0xA1) {
+            if (currentSpeak != null) currentSpeak.onAudioFile(uri);
+        } else if (requestCode == 0x91) {
             if (currentRead != null) currentRead.onArticleFile(uri);
         } else if (currentMine != null) {
             currentMine.onFilePicked(requestCode, uri);
@@ -207,6 +210,7 @@ public class MainActivity extends Activity {
     /** 当前显示「我的」页时保存实例，供导入回调使用。 */
     private MineView currentMine;
     private ReadView currentRead;
+    private SpeakView currentSpeak;
 
     public void openWord(String word) {
         Intent i = new Intent(this, com.englishstudy.app.ui.WordActivity.class);

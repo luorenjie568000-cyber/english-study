@@ -12,6 +12,7 @@ import com.englishstudy.app.data.Dict;
 import com.englishstudy.app.data.Sentences;
 import com.englishstudy.app.data.Store;
 import com.englishstudy.app.data.Vocab;
+import com.englishstudy.app.data.WordRoot;
 import com.englishstudy.app.engine.Card;
 
 import java.util.ArrayList;
@@ -123,6 +124,59 @@ public class WordActivity extends Activity {
             head.addView(U.tv(this, "（词典未收录）", 15, getColor(R.color.text_dim)));
         }
         root.addView(head);
+
+        // 词根词缀
+        WordRoot.load(this);
+        List<WordRoot.Item> roots = new ArrayList<>(WordRoot.of(word));
+        if (roots.isEmpty()) roots = WordRoot.decompose(word);
+        if (!roots.isEmpty()) {
+            root.addView(U.spacer(this, 12));
+            LinearLayout rc = U.card(this);
+            rc.addView(U.bold(this, "词根词缀", 13, Theme.c(this, R.color.text_dim)));
+            rc.addView(U.spacer(this, 8));
+            for (WordRoot.Item it : roots) {
+                LinearLayout row = U.col(this);
+                row.setPadding(0, U.px(this, 6), 0, U.px(this, 6));
+
+                LinearLayout rootHead = U.row(this);
+                TextView r = U.bold(this, it.root, 15, Theme.c(this, R.color.purple));
+                rootHead.addView(r);
+                rootHead.addView(U.hspacer(this, 8));
+                TextView kind = U.tv(this, kindLabel(it.kind), 10,
+                        Theme.c(this, R.color.text_dim2));
+                kind.setPadding(U.px(this, 6), U.px(this, 2), U.px(this, 6), U.px(this, 2));
+                kind.setBackgroundResource(R.drawable.bg_pill_soft);
+                rootHead.addView(kind);
+                if (!it.origin.isEmpty()) {
+                    rootHead.addView(U.hspacer(this, 6));
+                    rootHead.addView(U.tv(this, it.origin, 10,
+                            Theme.c(this, R.color.text_dim2)));
+                }
+                row.addView(rootHead);
+
+                if (!it.meaning.isEmpty()) {
+                    TextView m = U.tv(this, it.meaning, 13, Theme.c(this, R.color.text));
+                    m.setPadding(0, U.px(this, 3), 0, 0);
+                    row.addView(m);
+                }
+                // 同根词：最多列 4 个，可点
+                if (!it.examples.isEmpty()) {
+                    StringBuilder sb = new StringBuilder("同根：");
+                    int n = Math.min(4, it.examples.size());
+                    for (int i = 0; i < n; i++) {
+                        if (i > 0) sb.append(" · ");
+                        sb.append(it.examples.get(i));
+                    }
+                    TextView ex2 = U.tv(this, sb.toString(), 11,
+                            Theme.c(this, R.color.text_dim2));
+                    ex2.setPadding(0, U.px(this, 4), 0, 0);
+                    ex2.setLineSpacing(U.dp(this, 3), 1f);
+                    row.addView(ex2);
+                }
+                rc.addView(row);
+            }
+            root.addView(rc);
+        }
 
         // 例句
         Sentences.load(this);
@@ -291,6 +345,13 @@ public class WordActivity extends Activity {
         long h = min / 60;
         if (h < 24) return h + " 小时后";
         return (h / 24) + " 天后";
+    }
+
+    private String kindLabel(String kind) {
+        String k = kind == null ? "" : kind.toLowerCase(Locale.US);
+        if (k.contains("prefix")) return "前缀";
+        if (k.contains("suffix")) return "后缀";
+        return "词根";
     }
 
     private String statusText(int status) {

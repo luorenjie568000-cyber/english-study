@@ -34,6 +34,9 @@ public final class OfflineAsrEngine {
     private static final long MAX_MS = 30000;
 
     public interface Callback {
+        /** 带时间戳的结果（默认空实现，老调用方不用改）。 */
+        default void onTimed(TimedResult r) { }
+
         /** 录音开始。 */
         void onStart();
 
@@ -255,6 +258,10 @@ public final class OfflineAsrEngine {
             return;
         }
         final String out = text;
+        // 再跑一次带时间戳的识别（同一段 PCM，成本约等于一次识别）
+        final TimedResult timed = recognizeTimed(pcm, SR);
+        if (timed.text == null || timed.text.isEmpty()) timed.text = out;
+        post(cb, () -> cb.onTimed(timed));
         post(cb, () -> cb.onResult(out));
     }
 
@@ -282,6 +289,63 @@ public final class OfflineAsrEngine {
     }
 
     // ------------------------------------------------------------ 自检：TTS 音频回灌识别
+
+    /** 一个识别出的词及其时间区间（秒）。 */
+    public static final class TimedWord {
+        public final String text;
+        public final float start;
+        public final float end;
+
+        TimedWord(String t, float s, float e) {
+            text = t;
+            start = s;
+            end = e;
+        }
+    }
+
+    /** 带时间戳的识别结果。 */
+    public static final class TimedResult {
+        public String text = "";
+        public final List<TimedWord> words = new ArrayList<>();
+        public float duration;
+    }
+
+    /**
+     * 识别并返回词级时间戳（sherpa 的 OfflineRecognizerResult.getTimestamps()）。
+     *
+     * 有逐词时间就能做「哪个词念得慢/卡住/漏掉」的判断，
+     * 比纯文本比对（现在的 score()）准确得多。
+     */
+    public static TimedResult recognizeTimed(float[] pcm, int sr) {
+        TimedResult out = new TimedResult();
+        if (rec == null || pcm == null || pcm.length == 0) return out;
+        out.duration = pcm.length / (float) sr;
+        try {
+            OfflineStream st = rec.createStream();
+            st.acceptWaveform(pcm, sr);
+            rec.decode(st);
+            OfflineRecognizerResult r = rec.getResult(st);
+            if (r == null) return out;
+            out.text = clean(r.getText());
+            String[] toks = r.getTokens();
+            float[] ts = r.getTimestamps();
+            if (toks == null) return out;
+            for (int i = 0; i < toks.length; i++) {
+                String t = toks[i] == null ? "" : toks[i].trim();
+                if (t.isEmpty()) continue;
+                // 时间戳是 token 级，词的边界靠「前面是空格」判断（BPE 记法）
+                float s0 = (ts != null && i < ts.length) ? ts[i] : 0f;
+                float s1 = (ts != null && i + 1 < ts.length) ? ts[i + 1] : out.duration;
+                String piece = t.startsWith("\u2581") ? t.substring(1) : t;
+                if (piece.isEmpty()) continue;
+                out.words.add(new TimedWord(piece, s0, s1));
+            }
+            st.release();
+        } catch (Throwable e) {
+            diag("timed ERR " + e);
+        }
+        return out;
+    }
 
     /** 把一段 16k 单声道 float PCM 直接喂给识别器（绕过麦克风，用于闭环自检）。 */
     public static String recognize(float[] pcm, int sr) {

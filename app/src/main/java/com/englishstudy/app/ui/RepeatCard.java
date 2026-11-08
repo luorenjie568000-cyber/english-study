@@ -25,8 +25,12 @@ public final class RepeatCard {
         card.addView(U.spacer(a, 4));
         card.addView(state);
 
-        final TextView score = U.tv(a, "", 22, Theme.c(a, R.color.text));
+        final TextView score = U.tv(a, "", 26, Theme.c(a, R.color.text));
+        score.setGravity(Gravity.CENTER);
         card.addView(score);
+
+        final LinearLayout detail = U.col(a);
+        card.addView(detail);
 
         TextView btn = U.bold(a, "🎤 开始跟读", 14, Theme.c(a, R.color.white));
         btn.setBackground(U.primaryBg(a));
@@ -66,7 +70,7 @@ public final class RepeatCard {
                     int sc = OfflineAsrEngine.score(tgt, text);
                     state.setText("识别：" + text);
                     score.setText(sc >= 90 ? "满分 " + sc : sc >= 60 ? "不错 " + sc : "再试 " + sc);
-                    score.setTextColor(a.getColor(
+                    score.setTextColor(Theme.c(a, 
                             sc >= 90 ? R.color.ok : sc >= 60 ? R.color.warn : R.color.danger));
                 }
 
@@ -79,6 +83,15 @@ public final class RepeatCard {
         card.addView(U.spacer(a, 8));
         card.addView(btn);
         return card;
+    }
+
+    private static String joinWords(com.englishstudy.app.engine.Pronunciation.Result r) {
+        StringBuilder sb = new StringBuilder();
+        for (com.englishstudy.app.engine.Pronunciation.Word w : r.words) {
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(w.target);
+        }
+        return sb.toString();
     }
 
     private RepeatCard() {
