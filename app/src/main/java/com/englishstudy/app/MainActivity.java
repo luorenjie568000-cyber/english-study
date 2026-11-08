@@ -69,7 +69,7 @@ public class MainActivity extends Activity {
         // 现在内容占满整屏，底栏用 gravity=bottom 浮在上面，内容能滚到它背后。
         floating = new FloatingBar(this, TABS);
         floating.setOnTab(this::select);
-        floating.bindBackdrop(content);
+        floating.bindBackdrop(shell);
         FrameLayout.LayoutParams fbp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, U.px(this, 52));
         fbp.gravity = Gravity.BOTTOM;

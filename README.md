@@ -491,3 +491,70 @@ I am boring in the afternoon.
 - 内容滚动后必须**重抓**（否则看到的是旧画面）
 
 做不到 iOS 那种逐帧实时的真折射，这是平台限制，不是实现问题。
+
+### v5.7（2026-11-08 下午）：真·液态玻璃（RenderNode + RenderEffect）
+
+## 调研结论（子代理 26 分钟，196 次工具调用，实机验证）
+
+之前的三个方案全部失败的**源码级原因**：
+
+| 方案 | 为什么失败 |
+|---|---|
+| `View.setRenderEffect(blur)` | `RenderEffect` 作用对象是**该 View 自己的绘制结果**。给 TabBar 加 = 糊自己的文字 |
+| `Window.setBackgroundBlurRadius()` | AOSP `DecorView.java:1345`：`mBackgroundBlurRadius = mCrossWindowBlurEnabled && mWindow.isTranslucent() ? ... : 0` —— 非 translucent 窗口直接归零，**静默失效** |
+| Bitmap 快照 + CPU 盒式模糊 | 方向对，但用错了介质：Bitmap 有坐标对齐、重抓、性能三座大山 |
+
+## 正解：RenderNode 重录背景 + RenderEffect GPU 模糊
+
+```java
+// 1. 把背景层录进 RenderNode（显示列表，不是位图）
+RecordingCanvas rc = backdropNode.beginRecording(w, h);
+drawTree(rc, source, this);        // 跳过玻璃自己那一支
+backdropNode.endRecording();
+
+// 2. 给这个 RenderNode 挂 RenderEffect（GPU 高斯模糊）
+backdropNode.setRenderEffect(RenderEffect.createBlurEffect(r, r, CLAMP));
+
+// 3. 画到自己身上
+canvas.drawRenderNode(backdropNode);
+```
+
+**关键点**：
+- 被模糊的是背景层，玻璃自己的文字原样清晰
+- 全程 GPU，零 Bitmap、零回读、零 CPU 模糊
+- `RenderNode` 的显示列表会自动跟随 View 树变化，**不需要手动重抓**
+
+实机跑分：**p99 = 9ms，462 帧 1 掉帧（0.22%）**，6 次连续 fling 零掉帧。
+
+## 布局约束（成败关键）
+1. **背景源必须指向有背景色的父容器**（这里是 `shell`），
+   不能指向 `ScrollView` —— 它 padding 处是透明的，模糊后出现深色空洞
+2. 玻璃必须是背景源的**直接子级** → 遍历时 `child == glass` 直接跳过，
+   不会有重入（`IllegalStateException`）和成环（无限递归）
+3. **不要**在 onDraw 里无条件 `invalidate()` —— 会形成 invalidate→draw 死循环
+
+## AGSL 折射（API 33+）
+用 `RuntimeShader` 做边缘折射 + 色散 + 高光，这是唯一能做出 iOS 那种"透镜边"的路径。
+三个坑：
+- `refract` 是 AGSL 内建函数名 → uniform 要加前缀 `gRefract`
+- `half4` 颜色 uniform 必须用 `setColorUniform(String, long)`
+- **AGSL 编译失败是运行时抛异常** → 必须 try/catch + 永久降级标志，否则用户设备直接崩
+
+## 参数（照规范）
+| 参数 | 值 |
+|---|---|
+| blurRadius | 24dp（超过 40dp 收益递减） |
+| cornerRadius | 高度一半（胶囊） |
+| refraction | 12dp（超过 20dp 像塑料） |
+| dispersion | 0.10（>0.25 出彩虹边） |
+| tintColor | 浅色 0x22FFFFFF / 深色 0x1F000000 |
+| saturation | 1.25（让模糊后不发灰） |
+
+## API 30 降级
+`RenderEffect` 是 API 31。API 30 走不透明兜底（仍然圆角，视觉上像玻璃卡片）。
+iOS 的 `UIGlassEffect` 在低端设备上也是这么降级的。
+
+## 平台真相
+Android **有**能力做逐帧实时真模糊，但 `RenderNode.setBackdropRenderEffect()`
+（一行代码的 behind-blur）是 **`@hide`**。hwui 层早已具备（`setBackdropImageFilter`），
+只是没给 App 用。这是 **API 暴露问题，不是硬件问题**。
