@@ -206,7 +206,7 @@ public class ReaderActivity extends Activity {
 
         new Thread(() -> {
             com.englishstudy.app.engine.ArticleTool.Result r =
-                    com.englishstudy.app.engine.ArticleTool.translate(ps.text);
+                    com.englishstudy.app.engine.ArticleTool.translate(ps.text, lang);
             runOnUiThread(() -> {
                 pd.dismiss();
                 if (!r.ok()) {
@@ -225,8 +225,14 @@ public class ReaderActivity extends Activity {
 
         // 统计行
         LinearLayout stat = U.row(this);
-        stat.addView(U.pill(this, "句库 " + r.libraryHits + " 句",
-                Theme.c(this, R.color.accent)));
+        if ("en".equals(r.lang)) {
+            stat.addView(U.pill(this, "句库 " + r.libraryHits + " 句",
+                    Theme.c(this, R.color.accent)));
+        } else {
+            stat.addView(U.pill(this,
+                    com.englishstudy.app.data.MultiDict.langName(r.lang),
+                    Theme.c(this, R.color.accent)));
+        }
         stat.addView(U.hspacer(this, 6));
         stat.addView(U.pill(this, "共 " + r.lines.size() + " 句",
                 Theme.c(this, R.color.text_dim)));
@@ -242,10 +248,17 @@ public class ReaderActivity extends Activity {
             en.setLineSpacing(U.dp(this, 3), 1f);
             row.addView(en);
 
-            String zh = (line.zh == null || line.zh.isEmpty()) ? "（未译出）" : line.zh;
+            String zh;
+            if (line.zh != null && !line.zh.isEmpty()) {
+                zh = line.zh;
+            } else if (line.gloss != null && !line.gloss.isEmpty()) {
+                zh = line.gloss;          // 非英文：逐词对照
+            } else {
+                zh = "（未译出）";
+            }
             TextView zhTv = U.tv(this, zh, 14,
-                    Theme.c(this, line.zh == null || line.zh.isEmpty()
-                            ? R.color.text_dim2 : R.color.text));
+                    Theme.c(this, (line.zh == null || line.zh.isEmpty())
+                            ? R.color.text_dim : R.color.text));
             zhTv.setLineSpacing(U.dp(this, 4), 1f);
             zhTv.setPadding(0, U.px(this, 4), 0, 0);
             row.addView(zhTv);
@@ -302,6 +315,29 @@ public class ReaderActivity extends Activity {
         LinearLayout box = U.col(this);
         int p = U.px(this, 16);
         box.setPadding(p, p, p, p);
+
+        // 先给译文（模型补全后的完整对照）
+        int translated = 0;
+        for (com.englishstudy.app.engine.ArticleTool.Line l : r.lines) {
+            if (l.zh != null && !l.zh.isEmpty()) translated++;
+        }
+        if (translated > 0) {
+            box.addView(U.bold(this, "全文翻译 · " + translated + "/" + r.lines.size()
+                    + " 句", 13, Theme.c(this, R.color.text_dim)));
+            box.addView(U.spacer(this, 8));
+            for (com.englishstudy.app.engine.ArticleTool.Line l : r.lines) {
+                if (l.zh == null || l.zh.isEmpty()) continue;
+                TextView en = U.tv(this, l.en, 13, Theme.c(this, R.color.text_dim));
+                en.setLineSpacing(U.dp(this, 3), 1f);
+                box.addView(en);
+                TextView zh = U.tv(this, l.zh, 14, Theme.c(this, R.color.text));
+                zh.setLineSpacing(U.dp(this, 4), 1f);
+                zh.setPadding(0, U.px(this, 3), 0, U.px(this, 8));
+                box.addView(zh);
+                box.addView(U.divider(this, Theme.c(this, R.color.line)));
+            }
+            box.addView(U.spacer(this, 14));
+        }
 
         if (r.summary != null && !r.summary.isEmpty()) {
             LinearLayout card = U.card(this);
