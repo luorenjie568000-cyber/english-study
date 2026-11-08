@@ -290,3 +290,45 @@ The book was written by a young teacher.
 - 数词（two/three）不能当主语或谓语
 - `be + ing` 是进行（主动），`be + 过去分词` 才是被动 —— 之前一律判被动
 - 状语不能吃句末标点
+
+### v5.1（2026-11-08 中午）：液态玻璃重做
+
+之前的问题：底栏只是一个「半透明贴图」，内容滚动时底下什么都透不出来，
+看起来像贴纸；而且描边太重，一眼假。
+
+按 Apple HIG《Materials》+ WWDC25 的核心要求重做：
+
+1. **玻璃必须真的透出并模糊背后的内容**
+   `Glass.blurBehind(source, region, w, h, radius)`：
+   - 把内容层画到 1/4 分辨率 Bitmap
+   - 从中裁出「玻璃所在的那一块」区域
+   - 三遍盒式模糊（≈高斯，O(n)）
+   - 玻璃面板把这张图当底图绘制
+
+   **踩的坑**：第一版没传 region，整页 draw 后缩放到玻璃尺寸 →
+   胶囊里显示的是整页缩略图，完全对不上位置，看起来像一块灰糊。
+   必须用 `getLocationOnScreen` 算绝对坐标，按区域裁剪。
+
+2. **描边从「重描边」改成 0.8px 渐变**
+   上亮（α 0x3C–0x5A）下暗（α 0x08），模拟光沿玻璃边缘折射。
+   粗的均匀白描边看起来就是"白框"。
+
+3. **填充透明度大幅提高**
+   标准档 α 从 0x80 降到 0x68（强档到 0x42），让内容真的能透出来。
+
+4. **投影改为「大半径低 alpha」**
+   26dp 半径 / 10dp 下移 / α 0x66 —— 之前 0xCC 太重，像一条硬边界。
+
+5. **药丸自己带外发光**
+   6dp 半径 / 2dp 下移 / α 0x33，才有"凸起"感。
+
+6. **玻璃底图提亮而不是压暗**
+   之前用黑色蒙版压暗，结果是灰玻璃。改成顶部白色渐变提亮（α 0x1E→0x04），
+   深色下再补 0x1A 黑底保对比度。
+
+#### 参考的官方原文
+> "Liquid Glass allows content to scroll and peek through from beneath these
+> elements to give the interface a sense of dynamism and depth"
+> —— Apple HIG《Materials》
+
+这句就是「贴图 vs 真玻璃」的分界线：**内容必须能透出来**。

@@ -1,11 +1,12 @@
 package com.englishstudy.app.ui;
 
-import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.view.Gravity;
@@ -16,14 +17,16 @@ import android.widget.TextView;
 import com.englishstudy.app.R;
 
 /**
- * 悬浮胶囊导航栏（仿 LSPosed 17 的底部悬浮条）。
+ * 悬浮胶囊导航栏（Liquid Glass）。
  *
- * 和之前的「贴底通栏」不同，这条是**浮在内容之上**的圆角胶囊：
- *   - 左右留边距，下面留出安全区，看起来像浮起来的
- *   - 胶囊本体是玻璃：半透明底 + 边缘光 + 顶部高光 + 投影
- *   - 选中项是一个更亮的玻璃药丸，位置用动画滑过去
+ * 关键设计（依据 Apple HIG《Materials》+ WWDC25）：
  *
- * 这样玻璃才有「浮在内容上」的层次感 —— 通栏贴底看起来就只是换了个背景色。
+ *   1. 玻璃必须「真的透出并模糊背后的内容」，否则就是一张贴纸
+ *      → 每次内容变化后，把下方那一条内容抓成低分辨率快照，盒式模糊，当底图画
+ *   2. 描边要极细（0.5–1px）且**渐变**（上亮下暗），粗描边一眼假
+ *   3. 深色下不要用白色低 alpha 叠——会发灰去饱和；用暗色底 + 亮度提升
+ *   4. 投影要有但不能硬：大半径、低 alpha、向下偏移，才叫"浮"
+ *   5. 背景要够透明（α 0x40–0x60），让内容真的能"peek through"
  */
 public class FloatingBar extends LinearLayout {
 
@@ -31,46 +34,52 @@ public class FloatingBar extends LinearLayout {
         void onTab(int i);
     }
 
-    private final Context ctx;
+    private final android.content.Context ctx;
     private final TextView[] labels;
-    private final View indicator;
     private int current = -1;
     private OnTab listener;
-    /** 药丸当前位置（以「格」为单位，可以是小数，用于插值动画）。 */
-    private float posFrom = -1;
-    private float posTo = -1;
-    private long animStart;
-    private static final long ANIM_MS = 320;
-
-    /** 胶囊高度。 */
     private final int barHeight;
 
-    public FloatingBar(Context c, String[] names) {
+    /** 药丸位置插值（单位：格，可带小数）。 */
+    private float posFrom = -1, posTo = -1;
+    private long animStart;
+    private static final long ANIM_MS = 340;
+
+    /** 背后内容的模糊快照。 */
+    private View backdropSource;
+    private Bitmap blurred;
+    private final Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Rect srcRect = new Rect();
+    private final RectF dstRect = new RectF();
+
+    /** 玻璃层复用的 Paint。 */
+    private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint rimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sheenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF barRect = new RectF();
+
+    public FloatingBar(android.content.Context c, String[] names) {
         super(c);
         this.ctx = c;
-        barHeight = U.px(c, 50);   // 更扁 → 椭圆端，不是圆头方块
+        barHeight = U.px(c, 56);
 
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        int padH = U.px(c, 4);
-        setPadding(padH, 0, padH, 0);
-
-        // 胶囊本体：玻璃背景 + 投影（浮起来的关键）
-        setBackground(new CapsuleBackground(c, barHeight / 2f));
-        setWillNotDraw(false);   // 需要 onDraw 画选中药丸
-
-        // 选中指示器（玻璃药丸），单独一层放在最底下
-        indicator = new View(c);
-        indicator.setBackground(Glass.pill(c, Theme.c(c, R.color.primary)));
+        setPadding(U.px(c, 5), 0, U.px(c, 5), 0);
+        setWillNotDraw(false);
+        // 关闭默认背景：全部在 onDraw 里画，才能保证「模糊底图 → 玻璃层 → 药丸 → 文字」的顺序
+        setBackground(null);
 
         labels = new TextView[names.length];
         for (int i = 0; i < names.length; i++) {
             final int idx = i;
             TextView t = new TextView(c);
             t.setText(names[i]);
-            t.setTextSize(names.length > 6 ? 10 : 11);
+            t.setTextSize(names.length > 6 ? 11 : 12);
             t.setGravity(Gravity.CENTER);
-            t.setTextColor(Theme.c(c, R.color.text_dim2));
+            t.setTextColor(Theme.c(c, R.color.text_dim));
             t.setIncludeFontPadding(false);
             t.setOnClickListener(v -> select(idx));
             LayoutParams lp = new LayoutParams(0, LayoutParams.MATCH_PARENT, 1f);
@@ -84,20 +93,55 @@ public class FloatingBar extends LinearLayout {
         this.listener = l;
     }
 
-    @Override
-    protected void onMeasure(int w, int h) {
-        super.onMeasure(w, h);
+    /** 告诉它「背后的内容 View 是谁」，用来抓模糊快照。 */
+    public void bindBackdrop(View source) {
+        this.backdropSource = source;
+        refreshBackdrop();
     }
 
-    /** 切换选中项：药丸滑动 + 文字变色。 */
+    /**
+     * 重新抓快照。滚动结束时调用；不要每帧调用。
+     * 快照只在「内容变了」时需要更新，滚动中复用旧图（人眼分辨不出）。
+     */
+    public void refreshBackdrop() {
+        if (backdropSource == null || getWidth() == 0) return;
+        post(() -> {
+            if (backdropSource == null || getWidth() == 0) return;
+            // 计算自己在 source 坐标系里的矩形（source 是 content FrameLayout）
+            int[] myLoc = new int[2];
+            int[] srcLoc = new int[2];
+            getLocationOnScreen(myLoc);
+            backdropSource.getLocationOnScreen(srcLoc);
+            android.graphics.Rect region = new android.graphics.Rect(
+                    myLoc[0] - srcLoc[0], myLoc[1] - srcLoc[1],
+                    myLoc[0] - srcLoc[0] + getWidth(),
+                    myLoc[1] - srcLoc[1] + getHeight());
+
+            Bitmap old = blurred;
+            Bitmap bmp = Glass.blurBehind(backdropSource, region,
+                    getWidth(), getHeight(), U.px(ctx, 16));
+            if (bmp != null) {
+                blurred = bmp;
+                if (old != null && !old.isRecycled()) old.recycle();
+                invalidate();
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- 选中
+
     public void select(int i) {
-        if (i < 0 || i >= labels.length) return;
-        if (i == current) return;
+        if (i < 0 || i >= labels.length || i == current) return;
         animateTo(i);
         if (listener != null) listener.onTab(i);
     }
 
-    /** 药丸从当前位置滑到第 i 格，同时切换文字颜色。 */
+    /** 只更新高亮，不回调。 */
+    public void markSelected(int i) {
+        if (i < 0 || i >= labels.length || i == current) return;
+        animateTo(i);
+    }
+
     private void animateTo(int i) {
         if (current >= 0) {
             labels[current].setTextColor(Theme.c(ctx, R.color.text_dim));
@@ -106,197 +150,156 @@ public class FloatingBar extends LinearLayout {
         posFrom = current < 0 ? i : currentPos();
         posTo = i;
         current = i;
-        labels[i].setTextColor(Theme.c(ctx, R.color.primary));
+        labels[i].setTextColor(Theme.c(ctx, R.color.text));
         labels[i].setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-
         animStart = System.currentTimeMillis();
         postInvalidateOnAnimation();
-        postDelayed(this::finishAnim, ANIM_MS + 40);
     }
 
-    private void finishAnim() {
-        posFrom = posTo;
-        invalidate();
-    }
-
-    /** 当前插值位置。 */
     private float currentPos() {
-        if (posFrom < 0 || posTo < 0) return current;
+        if (posFrom < 0 || posTo < 0) return Math.max(0, current);
         long dt = System.currentTimeMillis() - animStart;
         if (dt >= ANIM_MS) return posTo;
         float t = dt / (float) ANIM_MS;
-        // ease-out cubic：起步快收尾慢，像 LSPosed 那种
-        float e = 1f - (1f - t) * (1f - t) * (1f - t);
+        float e = 1f - (float) Math.pow(1f - t, 3);   // ease-out cubic
         return posFrom + (posTo - posFrom) * e;
-    }
-
-    /** 只更新高亮，不回调（供外部主动切换时用，避免递归）。 */
-    public void markSelected(int i) {
-        if (i < 0 || i >= labels.length) return;
-        if (i == current) return;
-        animateTo(i);
-    }
-
-    /** 选中态药丸：比胶囊底更亮一档的实心块（LSPosed 那种）。 */
-    private android.graphics.drawable.Drawable selectedPill() {
-        android.graphics.drawable.GradientDrawable g =
-                new android.graphics.drawable.GradientDrawable();
-        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        g.setCornerRadius(U.px(ctx, 999));
-        int level = Glass.level();
-        if (Theme.light()) {
-            g.setColor(level == Glass.OFF ? 0xFFEDEAE3 : 0xFFE4E0D6);
-        } else {
-            g.setColor(level == Glass.OFF ? 0xFF46536B
-                    : level == Glass.STRONG ? 0xFF4E5E7A : 0xFF46536B);
-        }
-        if (level != Glass.OFF) {
-            g.setStroke(Math.max(1, U.px(ctx, 1)), 0x33FFFFFF);
-        }
-        return g;
     }
 
     public int current() {
         return current;
     }
 
-    private void moveIndicator() {
-        if (current < 0 || labels[current].getWidth() == 0) return;
-        View target = labels[current];
-        float left = target.getLeft();
-        float width = target.getWidth();
-
-        indicator.setVisibility(VISIBLE);
-        indicator.animate().cancel();
-        if (indicator.getWidth() == 0) {
-            // 首次：直接定位
-            indicator.setX(left + U.px(ctx, 4));
-            indicator.setLayoutParams(new LayoutParams((int) (width - U.px(ctx, 8)), barHeight));
-        } else {
-            indicator.animate()
-                    .x(left + U.px(ctx, 4))
-                    .setDuration(320)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
-                    .start();
-        }
-    }
+    // ---------------------------------------------------------------- 绘制
 
     @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        // indicator 不是 child，需要单独画：改成在 dispatchDraw 里画
-        super.onLayout(changed, l, t, r, b);
-        if (current >= 0) moveIndicator();
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        super.onSizeChanged(w, h, ow, oh);
+        barRect.set(0, 0, w, h);
+        refreshBackdrop();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+        float w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) return;
+        float rad = h / 2f;
+        int level = Glass.level();
+
+        // ── 1. 模糊底图：玻璃「透出并模糊」的背后内容
+        //    这一层决定了它看起来是玻璃还是贴纸
+        if (blurred != null && !blurred.isRecycled()) {
+            srcRect.set(0, 0, blurred.getWidth(), blurred.getHeight());
+            dstRect.set(0, 0, w, h);
+            int save = canvas.save();
+            android.graphics.Path clip = new android.graphics.Path();
+            clip.addRoundRect(barRect, rad, rad, android.graphics.Path.Direction.CW);
+            canvas.clipPath(clip);
+            // 底图略降饱和/亮度，保证上面文字可读
+            canvas.drawBitmap(blurred, srcRect, dstRect, bmpPaint);
+            // 玻璃会把背后的光「汇聚」——用一层极淡的高光提亮，而不是压暗
+            tintPaint.setShader(new LinearGradient(0, 0, 0, h,
+                    Glass.withAlpha(0xFFFFFFFF, Theme.light() ? 0x30 : 0x1E),
+                    Glass.withAlpha(0xFFFFFFFF, 0x04), Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, tintPaint);
+            tintPaint.setShader(null);
+            // 深色下再补一点底，保证文字对比度
+            if (!Theme.light()) {
+                tintPaint.setColor(0x1A000000);
+                canvas.drawRect(0, 0, w, h, tintPaint);
+            }
+            canvas.restoreToCount(save);
+        }
+
+        // ── 2. 半透明填充：让底图透出来一点，不是完全遮死
+        int base = Theme.light() ? 0xFFFFFFFF : 0xFF1B2331;
+        int alpha = level == Glass.OFF ? 0xF0
+                : level == Glass.STRONG ? 0x42
+                : level == Glass.LIGHT ? 0x98 : 0x68;
+        fillPaint.setShader(null);
+        fillPaint.setColor(Glass.withAlpha(base, alpha));
+        fillPaint.clearShadowLayer();
+        // 投影：大半径低 alpha 才是"浮"；之前 0xCC 太重像硬边界
+        if (level != Glass.OFF && android.os.Build.VERSION.SDK_INT >= 28) {
+            fillPaint.setShadowLayer(U.px(ctx, 26), 0f, U.px(ctx, 10), 0x66000000);
+        }
+        canvas.drawRoundRect(barRect, rad, rad, fillPaint);
+
+        // ── 3. 边缘光：0.8px 极细渐变（上亮下暗）。粗描边一眼假
+        if (level != Glass.OFF) {
+            float sw = Math.max(1f, 0.8f * ctx.getResources().getDisplayMetrics().density);
+            rimPaint.setStyle(Paint.Style.STROKE);
+            rimPaint.setStrokeWidth(sw);
+            int topA = level == Glass.STRONG ? 0x5A : 0x3C;
+            rimPaint.setShader(new LinearGradient(0, 0, 0, h,
+                    Glass.withAlpha(0xFFFFFFFF, topA),
+                    Glass.withAlpha(0xFFFFFFFF, 0x08),
+                    Shader.TileMode.CLAMP));
+            RectF rimR = new RectF(barRect);
+            float inset = sw / 2f;
+            rimR.inset(inset, inset);
+            canvas.drawRoundRect(rimR, rad - inset, rad - inset, rimPaint);
+
+            // ── 4. 顶部高光：横向带状，只在最上面 55%
+            sheenPaint.setShader(new RadialGradient(
+                    w * 0.32f, -h * 0.15f, w * 0.75f,
+                    new int[]{Glass.withAlpha(0xFFFFFFFF,
+                            level == Glass.STRONG ? 0x24 : 0x14), Color.TRANSPARENT},
+                    null, Shader.TileMode.CLAMP));
+            int save2 = canvas.save();
+            android.graphics.Path clip2 = new android.graphics.Path();
+            clip2.addRoundRect(barRect, rad, rad, android.graphics.Path.Direction.CW);
+            canvas.clipPath(clip2);
+            canvas.drawRect(0, 0, w, h * 0.55f, sheenPaint);
+            canvas.restoreToCount(save2);
+        }
+
+        // ── 5. 选中药丸（在玻璃之上、文字之下）
         if (current >= 0 && labels[current].getWidth() > 0) {
             float pos = currentPos();
             int from = (int) Math.floor(pos);
             int to = (int) Math.ceil(pos);
             float frac = pos - from;
-            if (from < 0) from = 0;
-            if (to >= labels.length) to = labels.length - 1;
-            if (from >= labels.length) from = labels.length - 1;
+            from = Math.max(0, Math.min(labels.length - 1, from));
+            to = Math.max(0, Math.min(labels.length - 1, to));
 
             float l1 = labels[from].getLeft(), r1 = labels[from].getRight();
             float l2 = labels[to].getLeft(), r2 = labels[to].getRight();
             float left = l1 + (l2 - l1) * frac;
             float right = r1 + (r2 - r1) * frac;
 
-            int pad = U.px(ctx, 5);
-            int top = U.px(ctx, 5);
-            int bottom = getHeight() - U.px(ctx, 5);
-            android.graphics.drawable.Drawable bg = selectedPill();
-            bg.setBounds((int) left + pad, top, (int) right - pad, bottom);
-            bg.draw(canvas);
+            int padH = U.px(ctx, 4);
+            float top = U.px(ctx, 5), bottom = h - U.px(ctx, 5);
+            RectF pill = new RectF(left + padH, top, right - padH, bottom);
+            float pr = pill.height() / 2f;
 
-            // 动画进行中：继续请求下一帧
+            // 药丸：比玻璃底再亮一档，带自己的微弱高光
+            pillPaint.setShader(null);
+            pillPaint.setColor(Theme.light() ? 0xF0FFFFFF : 0x3AFFFFFF);
+            pillPaint.clearShadowLayer();
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                // 药丸自己也有微弱外发光，才有"凸起"感
+                pillPaint.setShadowLayer(U.px(ctx, 6), 0f, U.px(ctx, 2), 0x33000000);
+            }
+            canvas.drawRoundRect(pill, pr, pr, pillPaint);
+            pillPaint.clearShadowLayer();
+
+            pillPaint.setShader(new LinearGradient(pill.left, pill.top,
+                    pill.left, pill.bottom,
+                    Glass.withAlpha(0xFFFFFFFF, 0x1A), Color.TRANSPARENT,
+                    Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(pill, pr, pr, pillPaint);
+            pillPaint.setShader(null);
+
             if (Math.abs(posTo - pos) > 0.001f) postInvalidateOnAnimation();
         }
+
         super.onDraw(canvas);
     }
 
-    /**
-     * 胶囊背景：圆角矩形 + 边缘光 + 顶部高光 + 外投影。
-     *
-     * 投影是「浮起来」的关键 —— LSPosed 那条明显有一圈柔和阴影把它从内容上托起来。
-     */
-    private static final class CapsuleBackground extends android.graphics.drawable.Drawable {
-        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF r = new RectF();
-        private final float radius;
-        private final Context c;
-
-        CapsuleBackground(Context c, float radius) {
-            this.c = c;
-            this.radius = radius;
-            fill.setStyle(Paint.Style.FILL);
-            rim.setStyle(Paint.Style.STROKE);
-            sheen.setStyle(Paint.Style.FILL);
-        }
-
-        @Override
-        protected void onBoundsChange(android.graphics.Rect b) {
-            r.set(b);
-            int level = Glass.level();
-            float d = c.getResources().getDisplayMetrics().density;
-
-            // 底色：比卡片更透一点，透出下面滚动的内容
-            // 比页面卡片明显亮一档，才有"浮起来"的对比
-            int base = Theme.light() ? 0xFFFFFFFF : 0xFF2A3446;
-            int alpha = level == Glass.OFF ? 0xFF
-                    : level == Glass.STRONG ? 0xE8
-                    : level == Glass.LIGHT ? 0xFA : 0xF2;
-            fill.setColor(Glass.withAlpha(base, alpha));
-            fill.clearShadowLayer();
-            // 外投影：浮起来的关键，比卡片重一点
-            if (Glass.level() != Glass.OFF && android.os.Build.VERSION.SDK_INT >= 28) {
-                fill.setShadowLayer(20f * d, 0f, 8f * d, 0xCC000000);
-            }
-
-            // 边缘光：上亮下暗
-            int top = level == Glass.OFF ? 0x18 : level == Glass.STRONG ? 0x70 : 0x4A;
-            int bottom = level == Glass.OFF ? 0x18 : 0x12;
-            rim.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom,
-                    Glass.withAlpha(0xFFFFFFFF, top),
-                    Glass.withAlpha(0xFFFFFFFF, bottom), Shader.TileMode.CLAMP));
-            rim.setStrokeWidth(Math.max(1f, 1.2f * d));
-
-            // 顶部高光：一条横向渐变，只在上半部
-            sheen.setShader(new RadialGradient(
-                    r.left + r.width() * 0.3f, r.top, Math.max(r.width() * 0.7f, 1f),
-                    new int[]{Glass.withAlpha(0xFFFFFFFF,
-                            level == Glass.OFF ? 0 : level == Glass.STRONG ? 0x2A : 0x18),
-                            Color.TRANSPARENT},
-                    null, Shader.TileMode.CLAMP));
-        }
-
-        @Override
-        public void draw(Canvas canvas) {
-            canvas.drawRoundRect(r, radius, radius, fill);
-            if (Glass.level() != Glass.OFF) {
-                canvas.drawRoundRect(r, radius, radius, sheen);
-                RectF rr = new RectF(r);
-                rr.inset(0.6f * c.getResources().getDisplayMetrics().density,
-                        0.6f * c.getResources().getDisplayMetrics().density);
-                canvas.drawRoundRect(rr, radius, radius, rim);
-            }
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-        }
-
-        @Override
-        public void setColorFilter(android.graphics.ColorFilter cf) {
-        }
-
-        @Override
-        public int getOpacity() {
-            return android.graphics.PixelFormat.TRANSLUCENT;
-        }
+    @Override
+    protected void onDetachedFromWindow() {
+        if (blurred != null && !blurred.isRecycled()) blurred.recycle();
+        blurred = null;
+        super.onDetachedFromWindow();
     }
 }

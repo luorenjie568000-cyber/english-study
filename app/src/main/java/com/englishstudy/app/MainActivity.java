@@ -64,12 +64,14 @@ public class MainActivity extends Activity {
         // 悬浮胶囊导航（浮在内容之上，不是贴底通栏）
         floating = new FloatingBar(this, TABS);
         floating.setOnTab(this::select);
+        floating.bindBackdrop(content);
         LinearLayout.LayoutParams fbp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 50));
         fbp.leftMargin = U.px(this, 22);
         fbp.rightMargin = U.px(this, 22);
         fbp.bottomMargin = U.px(this, 22);
         root.addView(floating, fbp);
+        floating.setElevation(U.px(this, 2));
 
         setContentView(shell);
         select(0);
@@ -105,6 +107,8 @@ public class MainActivity extends Activity {
         View v = build(idx);
         content.addView(v, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        // 内容变了 → 重新抓一次模糊快照（延迟到布局完成后）
+        if (floating != null) floating.post(floating::refreshBackdrop);
     }
 
     private View build(int idx) {
