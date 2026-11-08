@@ -5,28 +5,37 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.view.View;
-import android.view.ViewGroup;
 
+import com.englishstudy.app.R;
 import com.englishstudy.app.data.Store;
 
 /**
- * 液态玻璃（Liquid Glass）样式工具。
+ * 液态玻璃（Liquid Glass）。
  *
- * 分层思路（模仿 Apple 2025 的做法，但只用 SDK 自带能力）：
- *   1. 底色层：半透明填充，让下层内容透出来
- *   2. 模糊层：API 31+ 用 RenderEffect 真模糊；更低版本用渐变近似
- *   3. 边缘光：1px 上亮下暗的描边，模拟折射边
- *   4. 高光：左上角一层白色线性渐变，强度可调
+ * 依据 docs/liquid-glass-spec.md 的落地清单 P0 部分实现。核心认知：
  *
- * 强度分 4 档，存 Store("glass")，0=关 1=轻 2=标准 3=强。
- * 关掉时完全退回原来的纯色卡片（0 成本，滚动也快）。
+ *   玻璃质感来自「边缘光 + 高光 + 内阴影」三层叠加，不是模糊。
+ *   只做模糊 = 2020 年的毛玻璃，看起来很廉价。
+ *
+ *   而且 Android 上 View.setRenderEffect 模糊的是 View 自己画出来的内容，
+ *   不是它背后 —— 给卡片加它等于把卡片里的文字糊掉，所以整个方案不用它。
+ *
+ * 层序（下 → 上）：
+ *   1. 填充（暗色，不是白色！白色叠加在深色底上会发灰去饱和）
+ *   2. 底部内阴影（做厚度）
+ *   3. 边缘光（TL→BR 渐变：光从左上来，上边缘比下边缘亮）
+ *   4. 镜面高光（左上角径向，峰值在宽度 24% 处）
+ *
+ * 4 档强度：关闭 / 轻 / 标准 / 强，存 Store("glass")。
+ * 关闭档完全退回纯色 GradientDrawable，0 成本。
  */
 public final class Glass {
 
@@ -57,144 +66,281 @@ public final class Glass {
         }
     }
 
-    /** 是否能用 RenderEffect 做真模糊（Android 12+）。 */
     public static boolean canBlur() {
         return Build.VERSION.SDK_INT >= 31;
     }
 
-    // ---------------------------------------------------------------- 参数
+    // ---------------------------------------------------------------- 参数表
 
-    /** 卡片底色 alpha（越强越透）。 */
-    private static int fillAlpha() {
-        switch (level()) {
-            case LIGHT: return 0xF0;
-            case STRONG: return 0xC0;
-            default: return 0xDC;
+    /**
+     * 一档玻璃的全部数值参数（深色专用，来自规范 §4.1 的实测表）。
+     * 浅色主题会把 fillAlpha 抬高自适应（见 drawingContext）。
+     */
+    static final class Spec {
+        int fillAlpha;
+        int rimTopAlpha;
+        int rimBottomAlpha;
+        float rimWidthDp;
+        int sheenAlpha;
+        int innerShadeAlpha;
+        int glowAlpha;
+        float glowRadiusDp;
+        float glowDyDp;
+        float radiusDp;
+    }
+
+    static Spec spec(int tier) {
+        Spec s = new Spec();
+        switch (tier) {
+            case LIGHT:
+                s.fillAlpha = 0xF0;
+                s.rimTopAlpha = 0x38;
+                s.rimBottomAlpha = 0x0E;
+                s.rimWidthDp = 1f;
+                s.sheenAlpha = 0x14;
+                s.innerShadeAlpha = 0x0C;
+                s.glowAlpha = 0x00;
+                s.glowRadiusDp = 0f;
+                s.glowDyDp = 0f;
+                s.radiusDp = 18f;
+                break;
+            case STRONG:
+                s.fillAlpha = 0x9E;
+                s.rimTopAlpha = 0x80;
+                s.rimBottomAlpha = 0x1F;
+                s.rimWidthDp = 2f;
+                s.sheenAlpha = 0x2E;
+                s.innerShadeAlpha = 0x1C;
+                s.glowAlpha = 0x33;
+                s.glowRadiusDp = 8f;
+                s.glowDyDp = 3f;
+                s.radiusDp = 20f;
+                break;
+            case NORMAL:
+                s.fillAlpha = 0xC8;
+                s.rimTopAlpha = 0x59;
+                s.rimBottomAlpha = 0x14;
+                s.rimWidthDp = 1.5f;
+                s.sheenAlpha = 0x1F;
+                s.innerShadeAlpha = 0x14;
+                s.glowAlpha = 0x26;
+                s.glowRadiusDp = 6f;
+                s.glowDyDp = 2f;
+                s.radiusDp = 18f;
+                break;
+            default: // OFF
+                s.fillAlpha = 0xFF;
+                s.rimTopAlpha = 0x26;
+                s.rimBottomAlpha = 0x26;
+                s.rimWidthDp = 1f;
+                s.sheenAlpha = 0;
+                s.innerShadeAlpha = 0;
+                s.glowAlpha = 0;
+                s.glowRadiusDp = 0f;
+                s.glowDyDp = 0f;
+                s.radiusDp = 16f;
+                break;
         }
+        return s;
     }
 
-    /** 边缘光强度。 */
-    private static int edgeAlpha() {
-        switch (level()) {
-            case LIGHT: return 0x18;
-            case STRONG: return 0x44;
-            default: return 0x2C;
-        }
-    }
-
-    /** 左上高光强度。 */
-    private static int sheenAlpha() {
-        switch (level()) {
-            case LIGHT: return 0x10;
-            case STRONG: return 0x30;
-            default: return 0x20;
-        }
-    }
-
-    public static int radius(Context c) {
-        return U.px(c, level() == OFF ? 16 : 18);
-    }
-
-    // ---------------------------------------------------------------- 背景
+    // ---------------------------------------------------------------- 应用
 
     /**
      * 给任意 View 套上玻璃背景。
      *
-     * 用 LayerDrawable 叠：底色 + 顶部高光渐变 + 描边。
-     * 描边用 GradientDrawable 的 stroke，颜色没法做渐变，
-     * 所以「上亮下暗」靠再叠一层极淡的顶部渐变近似。
+     * 外发光会被 View 自身边界裁掉，所以给四周补 padding 作为"留白给阴影"，
+     * Drawable 再把内容区 inset 回来 —— 视觉尺寸不变，多余空间留给光晕。
      */
     public static void apply(View v, int baseColor, Context c) {
         if (level() == OFF) {
-            GradientDrawable g = new GradientDrawable();
-            g.setColor(baseColor);
-            g.setCornerRadius(radius(c));
-            g.setStroke(Math.max(1, U.px(c, 1)), blend(baseColor, 0x33FFFFFF));
-            v.setBackground(g);
+            v.setBackground(flat(c, baseColor, U.px(c, 16)));
             return;
         }
-
-        int r = radius(c);
-        int stroke = Math.max(1, U.px(c, 1));
-
-        // 1) 主体：半透明填充 + 描边
-        GradientDrawable body = new GradientDrawable();
-        body.setShape(GradientDrawable.RECTANGLE);
-        body.setCornerRadius(r);
-        body.setColor(withAlpha(baseColor, fillAlpha()));
-        body.setStroke(stroke, withAlpha(0xFFFFFFFF, edgeAlpha()));
-
-        // 2) 顶部高光：从左上到右下的白色渐变，只覆盖上半部分
-        GradientDrawable sheen = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{withAlpha(0xFFFFFFFF, sheenAlpha()),
-                        withAlpha(0xFFFFFFFF, sheenAlpha() / 4),
-                        Color.TRANSPARENT});
-        sheen.setShape(GradientDrawable.RECTANGLE);
-        sheen.setCornerRadius(r);
-        sheen.setGradientType(GradientDrawable.LINEAR_GRADIENT);
-
-        v.setBackground(new LayerDrawable(new Drawable[]{body, sheen}));
-        // 注意：不要用 setRenderEffect —— 它模糊的是 View 自己的内容（文字会糊），
-        // 不是背后。玻璃感靠「半透明 + 渐变高光 + 边缘光」在静态背景上实现。
+        Spec s = spec(level());
+        // 只留够画光晕的最小边距；留太多会把卡片内容挤窄
+        int room = s.glowAlpha > 0 ? Math.round(s.glowDyDp * dens(c)) : 0;
+        if (room > 0) {
+            v.setPadding(v.getPaddingLeft() + room, v.getPaddingTop() + room,
+                    v.getPaddingRight() + room, v.getPaddingBottom() + room);
+        }
+        v.setBackground(new GlassDrawable(c, s, baseColor, room,
+                Theme.c(c, R.color.primary)));
     }
 
-    // ---------------------------------------------------------------- 顶部/底部栏
-
-    /**
-     * 顶栏与底栏的玻璃背景：比卡片更透，因为要透出下面滚动的内容。
-     */
+    /** 顶栏 / 底栏：通栏不投影、不做圆角。 */
     public static void applyBar(View v, Context c) {
         if (level() == OFF) {
             v.setBackgroundColor(Theme.light() ? 0xFFFBF9F4 : 0xFF111721);
             return;
         }
+        Spec s = spec(level());
+        s.fillAlpha = Math.min(0xFF, s.fillAlpha + 0x14);
+        s.radiusDp = 0f;
+        s.glowAlpha = 0;
+        s.glowRadiusDp = 0;
         int barBase = Theme.light() ? 0xFFFBF9F4 : 0xFF111721;
-        GradientDrawable body = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{withAlpha(barBase, 0xF0), withAlpha(barBase, 0xD8)});
-        body.setShape(GradientDrawable.RECTANGLE);
-
-        GradientDrawable sheen = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{withAlpha(0xFFFFFFFF, sheenAlpha() / 2), Color.TRANSPARENT});
-        sheen.setShape(GradientDrawable.RECTANGLE);
-
-        v.setBackground(new LayerDrawable(new Drawable[]{body, sheen}));
+        v.setBackground(new GlassDrawable(c, s, barBase, 0, Theme.c(c, R.color.primary)));
     }
+
+    /** 选中态玻璃药丸。 */
+    public static Drawable pill(Context c, int accent) {
+        Spec s = spec(level());
+        s.fillAlpha = level() == OFF ? 0x22 : 0x3A;
+        s.rimTopAlpha = Math.min(0xFF, s.rimTopAlpha + 0x18);
+        s.rimBottomAlpha = 0x10;
+        s.glowAlpha = 0;
+        s.glowRadiusDp = 0;
+        s.radiusDp = 16f;
+        return new GlassDrawable(c, s, accent, 0, accent);
+    }
+
+    private static GradientDrawable flat(Context c, int color, int radiusPx) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.RECTANGLE);
+        g.setCornerRadius(radiusPx);
+        g.setColor(color);
+        g.setStroke(Math.max(1, U.px(c, 1)), Theme.c(c, R.color.line));
+        return g;
+    }
+
+    private static float dens(Context c) {
+        return c.getResources().getDisplayMetrics().density;
+    }
+
+    // ---------------------------------------------------------------- 可选模糊
 
     /**
-     * 选中态的玻璃药丸（底栏当前标签）。
+     * 给「被玻璃盖住的内容层」加真模糊（API 31+）。
+     *
+     * 注意作用对象：不是玻璃面板，是它下面的内容层。
+     * 全屏糊会掉帧，只适合固定条带（底栏高度那一条）。
      */
-    public static Drawable pill(Context c, int accent) {
-        int r = U.px(c, 14);
-        GradientDrawable body = new GradientDrawable();
-        body.setShape(GradientDrawable.RECTANGLE);
-        body.setCornerRadius(r);
-        body.setColor(withAlpha(accent, level() == OFF ? 0x22 : 0x30));
-        body.setStroke(Math.max(1, U.px(c, 1)), withAlpha(accent, 0x66));
-
-        GradientDrawable sheen = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{withAlpha(0xFFFFFFFF, sheenAlpha()), Color.TRANSPARENT});
-        sheen.setShape(GradientDrawable.RECTANGLE);
-        sheen.setCornerRadius(r);
-
-        return new LayerDrawable(new Drawable[]{body, sheen});
+    public static boolean blurContent(View content, float radiusPx) {
+        if (Build.VERSION.SDK_INT < 31) return false;
+        content.setRenderEffect(radiusPx <= 0f ? null
+                : android.graphics.RenderEffect.createBlurEffect(
+                radiusPx, radiusPx, Shader.TileMode.CLAMP));
+        return true;
     }
 
-    // ---------------------------------------------------------------- 颜色工具
+    // ---------------------------------------------------------------- 绘制器
 
-    public static int withAlpha(int color, int alpha) {
-        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
-    }
+    /** 玻璃背景绘制器。5 个 Paint 复用，避免每帧 GC。全部 API 24+ 可用。 */
+    public static final class GlassDrawable extends Drawable {
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF r = new RectF();
+        private final float density;
+        private final Spec s;
+        private final int padPx;
+        private final int base;
+        private final int accent;
 
-    private static int blend(int color, int overlay) {
-        int a = (overlay >>> 24) & 0xFF;
-        int r = ((color >> 16) & 0xFF) * (255 - a) / 255 + ((overlay >> 16) & 0xFF) * a / 255;
-        int g = ((color >> 8) & 0xFF) * (255 - a) / 255 + ((overlay >> 8) & 0xFF) * a / 255;
-        int b = (color & 0xFF) * (255 - a) / 255 + (overlay & 0xFF) * a / 255;
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+        public GlassDrawable(Context c, Spec spec, int baseColor, int padPx, int accent) {
+            this.density = c.getResources().getDisplayMetrics().density;
+            this.s = spec;
+            this.base = baseColor;
+            this.padPx = padPx;
+            this.accent = accent;
+            fill.setStyle(Paint.Style.FILL);
+            rim.setStyle(Paint.Style.STROKE);
+            sheen.setStyle(Paint.Style.FILL);
+            shade.setStyle(Paint.Style.FILL);
+        }
+
+        @Override
+        protected void onBoundsChange(Rect bounds) {
+            r.set(bounds);
+            if (padPx > 0) r.inset(padPx, padPx);
+            rebuild();
+        }
+
+        private void rebuild() {
+            float rad = s.radiusDp * density;
+
+            // 1) 填充：暗色 + alpha。浅色主题不能太透，否则白底上发灰
+            int alpha = s.fillAlpha;
+            if (Theme.light()) alpha = Math.min(0xFF, alpha + 0x20);
+            fill.setColor(withAlpha(base, alpha));
+            fill.clearShadowLayer();
+
+            // 外发光：用主色而不是黑色 —— 深色底上黑投影看不见还显脏
+            if (s.glowAlpha > 0 && Build.VERSION.SDK_INT >= 28) {
+                fill.setShadowLayer(s.glowRadiusDp * density, 0f, s.glowDyDp * density,
+                        withAlpha(accent, s.glowAlpha));
+            }
+
+            // 2) 边缘光：TL→BR 渐变。光从左上来，上边缘亮下边缘暗。
+            //    均匀白描边看起来是"白框"，一眼假。
+            rim.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom,
+                    withAlpha(0xFFFFFFFF, s.rimTopAlpha),
+                    withAlpha(0xFFFFFFFF, s.rimBottomAlpha),
+                    Shader.TileMode.CLAMP));
+            rim.setStrokeWidth(Math.max(1f, s.rimWidthDp * density));
+
+            // 3) 镜面高光：左上角径向，峰值在宽度 24% / 高度 10%
+            float hx = r.left + r.width() * 0.24f;
+            float hy = r.top + r.height() * 0.10f;
+            float hr = Math.max(r.width() * 0.62f, 1f);
+            sheen.setShader(new RadialGradient(hx, hy, hr,
+                    new int[]{withAlpha(0xFFFFFFFF, s.sheenAlpha), Color.TRANSPARENT},
+                    null, Shader.TileMode.CLAMP));
+
+            // 4) 底部内阴影：让玻璃有厚度
+            shade.setShader(new LinearGradient(0, r.top, 0, r.bottom,
+                    new int[]{Color.TRANSPARENT, Color.TRANSPARENT,
+                            withAlpha(0xFF000000, s.innerShadeAlpha)},
+                    new float[]{0f, 0.62f, 1f}, Shader.TileMode.CLAMP));
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (r.isEmpty()) {
+                r.set(getBounds());
+                if (padPx > 0) r.inset(padPx, padPx);
+                rebuild();
+            }
+            float rad = s.radiusDp * density;
+
+            canvas.drawRoundRect(r, rad, rad, fill);
+
+            if (s.innerShadeAlpha > 0) {
+                canvas.drawRoundRect(r, rad, rad, shade);
+            }
+
+            RectF rr = new RectF(r);
+            float inset = Math.max(1f, s.rimWidthDp * density * 0.5f);
+            rr.inset(inset, inset);
+            float rr2 = Math.max(0, rad - inset);
+            canvas.drawRoundRect(rr, rr2, rr2, rim);
+
+            if (s.sheenAlpha > 0) {
+                int save = canvas.save();
+                canvas.clipRect(r);
+                canvas.drawRoundRect(r, rad, rad, sheen);
+                canvas.restoreToCount(save);
+            }
+        }
+
+        @Override
+        public void setAlpha(int a) {
+            fill.setAlpha(a);
+            invalidateSelf();
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter cf) {
+            fill.setColorFilter(cf);
+            invalidateSelf();
+        }
+
+        @Override
+        public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSLUCENT;
+        }
     }
 
     // ---------------------------------------------------------------- 背景装饰
@@ -202,8 +348,8 @@ public final class Glass {
     /**
      * 全屏背景：深色底 + 两团彩色光晕。
      *
-     * 玻璃要好看，底下必须有点东西可透——纯色背景上的玻璃看不出质感。
-     * 光晕用 RadialGradient 画，成本很低。
+     * 玻璃要好看，底下必须有东西可透 —— 纯色背景上的玻璃看不出质感。
+     * 规范 §1.5：加两团极淡径向光晕（α 0x1A–0x46）成本几乎为零，效果提升最大。
      */
     public static class Backdrop extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -230,19 +376,32 @@ public final class Glass {
 
             int strength = level() == STRONG ? 0x46 : level() == LIGHT ? 0x1A : 0x2E;
 
-            p.setShader(new android.graphics.RadialGradient(
-                    w * 0.18f, h * 0.12f, w * 0.85f,
+            p.setShader(new RadialGradient(w * 0.18f, h * 0.12f, w * 0.85f,
                     new int[]{withAlpha(accent, strength), Color.TRANSPARENT},
-                    null, android.graphics.Shader.TileMode.CLAMP));
+                    null, Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, p);
 
-            p.setShader(new android.graphics.RadialGradient(
-                    w * 0.92f, h * 0.78f, w * 0.80f,
+            p.setShader(new RadialGradient(w * 0.92f, h * 0.78f, w * 0.80f,
                     new int[]{withAlpha(accent2, strength / 2), Color.TRANSPARENT},
-                    null, android.graphics.Shader.TileMode.CLAMP));
+                    null, Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, p);
 
             p.setShader(null);
         }
+    }
+
+    // ---------------------------------------------------------------- 工具
+
+    public static int withAlpha(int color, int alpha) {
+        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
+    }
+
+    private static int blend(int color, int overlay, float t) {
+        int ar = (color >> 16) & 0xFF, ag = (color >> 8) & 0xFF, ab = color & 0xFF;
+        int br = (overlay >> 16) & 0xFF, bg = (overlay >> 8) & 0xFF, bb = overlay & 0xFF;
+        int r = (int) (ar + (br - ar) * t);
+        int g = (int) (ag + (bg - ag) * t);
+        int b = (int) (ab + (bb - ab) * t);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 }

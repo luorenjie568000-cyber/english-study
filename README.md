@@ -186,3 +186,25 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 
 **未做**：mdx/mdd 导入（需要实现 writemdict 的 key block / record block 解析，
 6–10 人日，且 wmdx 格式边缘情况多；CSV 导入已覆盖绝大多数换词表需求）。
+
+#### 玻璃实现按规范重构（v4.6.1）
+调研产物 `docs/liquid-glass-spec.md` 落地后，重写 `Glass.java`：
+
+| 改进 | 之前 | 现在 |
+|---|---|---|
+| 边缘光 | `GradientDrawable` 单色描边（看起来是"白框"） | `LinearGradient` TL→BR，上亮下暗（模拟光从左上来） |
+| 镜面高光 | 简化的 TL_BR 渐变 | `RadialGradient`，峰值在宽度 24% / 高度 10% |
+| 内阴影 | 无 | 底部 `LinearGradient`（62% 处起黑 α 0x14），做厚度 |
+| 外发光 | 黑色投影（深色底上看不见） | **主色低 alpha** `0x26–0x33`（黑投影在深色下只是脏） |
+| 板级参数 | 3 个档位混在一起 | `Spec` 结构体，4 档 12 个参数分离 |
+
+**规范给出的关键依据**（都已核对官方文档）：
+- `View.setRenderEffect` 模糊的是**自己画出来的内容**，不是背后 → 整套方案不用它
+- `Window.setBackgroundBlurRadius` 要求 window **translucent + floating**，
+  常规 Activity 用了**无任何效果也不报错**
+- `BlurMaskFilter` 在硬件加速下**完全不支持**（静默失效）
+- 深色下白色低 alpha 叠加做玻璃 → 发灰去饱和（"90% 的人做错的地方"）
+- 对比度实测：主文字 13–14:1 安全；但 `#4F7CFF` 在强档仅 4.18:1 < 4.5:1
+
+**padding 坑**：外发光要给 View 留边距，但留多了会把卡片内容挤窄
+（第一次给了 16dp×0.6，卡片直接缩了一圈）。改成只留 `glowDyDp`。
