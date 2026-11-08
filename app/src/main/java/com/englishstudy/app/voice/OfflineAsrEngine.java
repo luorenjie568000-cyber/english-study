@@ -87,22 +87,50 @@ public final class OfflineAsrEngine {
         });
     }
 
+    /** 可选的 whisper 档位，按「用户选择 → 从大到小」挑第一个已下载的。 */
+    private static ModelRepo.Pack pickWhisper(Context app) {
+        String want = com.englishstudy.app.data.Store.get("voice.asr", "whisper-tiny.en");
+        List<ModelRepo.Pack> all = new ArrayList<>();
+        all.add(ModelRepo.asrWhisperMedium());
+        all.add(ModelRepo.asrWhisperSmall());
+        all.add(ModelRepo.asrWhisperBase());
+        all.add(ModelRepo.asrWhisper());
+        for (ModelRepo.Pack p : all) {
+            if (p.id.equals(want) && ModelRepo.ready(app, p)) return p;
+        }
+        for (ModelRepo.Pack p : all) {
+            if (ModelRepo.ready(app, p)) return p;
+        }
+        return null;
+    }
+
+    /** 当前加载的模型（供设置页显示）。 */
+    public static String loadedPackId() {
+        return loadedId == null ? "" : loadedId;
+    }
+
     private static OfflineRecognizer build(Context app) {
         OfflineModelConfig mc = new OfflineModelConfig();
         mc.setNumThreads(Math.max(2, Runtime.getRuntime().availableProcessors() / 2));
         mc.setDebug(false);
         mc.setProvider("cpu");
 
-        ModelRepo.Pack wp = ModelRepo.asrWhisper();
-        if (ModelRepo.ready(app, wp)) {
+        // 按用户在「我的 → 离线语音」选的档位加载；没选/没下载就依次往下退。
+        // 这让「换更大的模型」真的生效，而不是写死 tiny。
+        ModelRepo.Pack wp = pickWhisper(app);
+        if (wp != null) {
             OfflineWhisperModelConfig w = new OfflineWhisperModelConfig();
-            w.setEncoder(ModelRepo.file(app, wp, "tiny.en-encoder.int8.onnx").getAbsolutePath());
-            w.setDecoder(ModelRepo.file(app, wp, "tiny.en-decoder.int8.onnx").getAbsolutePath());
+            String sz = wp.id.replace("whisper-", "").replace(".en", "");
+            w.setEncoder(ModelRepo.file(app, wp, sz + ".en-encoder.int8.onnx")
+                    .getAbsolutePath());
+            w.setDecoder(ModelRepo.file(app, wp, sz + ".en-decoder.int8.onnx")
+                    .getAbsolutePath());
             w.setLanguage("en");
             w.setTask("transcribe");
             w.setTailPaddings(1000);
             mc.setWhisper(w);
-            mc.setTokens(ModelRepo.file(app, wp, "tiny.en-tokens.txt").getAbsolutePath());
+            mc.setTokens(ModelRepo.file(app, wp,
+                    sz + ".en-tokens.txt").getAbsolutePath());
             mc.setModelType("whisper");
             loadedId = wp.id;
         } else {

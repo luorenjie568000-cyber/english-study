@@ -216,6 +216,12 @@ public class MediaPanel {
         root.addView(acts);
 
         root.addView(U.spacer(a, 8));
+        TextView fix = U.ghostButton(a, "🤖 本地模型校对照（改同音错词）",
+                Theme.c(a, R.color.accent));
+        fix.setOnClickListener(v -> recheck());
+        root.addView(fix);
+
+        root.addView(U.spacer(a, 8));
 
         // 导出：三种格式各有用途（SRT 挂播放器 / TXT 进 Anki / MD 留档）
         LinearLayout exp = U.row(a);
@@ -549,6 +555,39 @@ public class MediaPanel {
         }, "trall").start();
     }
 
+    /** 手动重跑 LLM 纠错（不会覆盖用户改过的句子）。 */
+    private void recheck() {
+        if (current == null || current.lines.isEmpty()) return;
+        ProgressDialog pd = new ProgressDialog(a);
+        pd.setMessage("本地模型正在校对照…");
+        pd.setCancelable(false);
+        pd.show();
+        new Thread(() -> {
+            List<String> raw = new java.util.ArrayList<>();
+            for (Media.Line l : current.lines) raw.add(l.text);
+            List<com.englishstudy.app.engine.AsrFix.Fixed> fx =
+                    com.englishstudy.app.engine.AsrFix.fix(raw);
+            int changed = 0;
+            int n = Math.min(fx.size(), current.lines.size());
+            for (int i = 0; i < n; i++) {
+                com.englishstudy.app.engine.AsrFix.Fixed f = fx.get(i);
+                if (f.changed && !current.lines.get(i).edited) {
+                    current.lines.get(i).text = f.text;
+                    changed++;
+                }
+            }
+            final int fc = changed;
+            a.runOnUiThread(() -> {
+                pd.dismiss();
+                Media.save(a);
+                render();
+                android.widget.Toast.makeText(a,
+                        fc == 0 ? "没发现需要改的地方" : "修正了 " + fc + " 句",
+                        android.widget.Toast.LENGTH_SHORT).show();
+            });
+        }, "recheck").start();
+    }
+
     /** 导出字幕（用户要求「可以选择保存」）。 */
     private void export(String kind) {
         if (current == null || current.lines.isEmpty()) return;
@@ -715,6 +754,22 @@ public class MediaPanel {
                 // 过滤 Whisper 的幻觉：占位标记 / 单字符 / 全大写无意义串
                 if (!plausible(l.text)) continue;
                 lines.add(l);
+            }
+
+            // 用本地 LLM 做一遍上下文纠错（"Seven" → "students" 这类同音错）
+            if (!lines.isEmpty()) {
+                a.runOnUiThread(() -> pd.setMessage("本地模型校对照…"));
+                List<String> raw = new java.util.ArrayList<>();
+                for (Media.Line l : lines) raw.add(l.text);
+                List<com.englishstudy.app.engine.AsrFix.Fixed> fixed =
+                        com.englishstudy.app.engine.AsrFix.fix(raw);
+                int n = Math.min(fixed.size(), lines.size());
+                for (int k = 0; k < n; k++) {
+                    com.englishstudy.app.engine.AsrFix.Fixed f = fixed.get(k);
+                    if (f.changed && !lines.get(k).edited) {
+                        lines.get(k).text = f.text;
+                    }
+                }
             }
 
             it.lines.clear();

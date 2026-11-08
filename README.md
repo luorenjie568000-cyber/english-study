@@ -756,3 +756,57 @@ v5.x 只显示「识别到 XXX」，没有评分也不能回放自己念的。�
 ## 修掉的崩溃
 - `MediaPanel` 里 `a.getColor(0)` → `Resources$NotFoundException: Resource ID #0x0`
 - `MediaActivity` 未在 Manifest 注册前会 `Unable to start activity`
+
+### v6.1（2026-11-08 夜）：识别模型可选 + 本地 LLM 纠错
+
+## 问题
+用户截图：视频原文 `We're off to a Statue of The Seven!`
+ASR 输出：`We are up to a statue of the students.`
+（tiny.en 把 off→up、Seven→students 听错）
+
+## 两个解法，都做了
+
+### 1. 识别模型可选（用户下载后自行切换）
+「我的 → 离线语音 → 识别模型」现在有四档：
+
+| 模型 | 体积 | 参数 | 定位 |
+|---|---|---|---|
+| NeMo CTC small | 46MB | 120M | 最快，准确度一般 |
+| Whisper tiny.en | 103MB | 39M | 原默认，同音错多 |
+| **Whisper base.en** | 153MB | 74M | **推荐**，错率明显下降 |
+| Whisper small.en | 358MB | 244M | 更准，慢一些 |
+| Whisper medium.en | 902MB | 769M | 最准，最慢 |
+
+`voice.asr` 存选择；`OfflineAsrEngine.pickWhisper()` 按「用户选择 → 从大到小」
+挑第一个已下载的，不会出现「选了但没生效」。
+
+### 2. 本地 LLM 上下文件纠错（`engine/AsrFix.java`）
+识别完自动跑一遍：把整批句子交给本地 4B，让它按上下文改掉同音错词。
+原理是**语言先验推翻声学判据**：`statue of the students` 不是英语会出现的搭配，
+而 `Statue of The Seven` 是有名专有名词。
+
+实测（同一段音频，tiny.en 的原始输出）：
+```
+输入：We are up to a statue of the students.
+输出：We are up to a statue of the seven.        ← students 改对了
+输入：But whenever is really nice today.
+输出：But whenever it is really nice today.      ← 补上了 it
+```
+`up → off` 没改（"up to" 本身合法，模型不敢动）—— 这一处必须靠大模型。
+
+## base.en 实测对比
+同一段测试音频，只换模型：
+
+| 句 | tiny.en | base.en |
+|---|---|---|
+| 1 | But whenever is really nice today. | **The weather is really nice today.** |
+| 2 | I want to go outside and take a walk. | 一致 |
+| 3 | After now, I will read the book. | **After that** I will read a book. |
+
+两处全对。所以「换大模型 + LLM 纠错」两条腿都要有：
+大模型减少错误发生，LLM 兜住剩下的。
+
+## UI
+详情页新增「🤖 本地模型校对照（改同音错词）」按钮，可手动重跑；
+识别完成时自动跑一次（下载模型后不需要额外操作）。
+用户手动改过的句子（`edited=true`）不会被覆盖。

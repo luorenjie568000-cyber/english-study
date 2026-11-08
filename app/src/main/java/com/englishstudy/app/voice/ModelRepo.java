@@ -124,6 +124,40 @@ public final class ModelRepo {
         return p;
     }
 
+    /** 通用 whisper 包构造：四档只差文件名和体积。 */
+    private static Pack whisper(String size, String title, long enc, long dec) {
+        Pack p = new Pack(KIND_ASR, "whisper-" + size + ".en", title,
+                "whisper-" + size + ".en");
+        p.add(size + ".en-encoder.int8.onnx",
+                HF + "sherpa-onnx-whisper-" + size + ".en/resolve/main/"
+                        + size + ".en-encoder.int8.onnx", enc);
+        p.add(size + ".en-decoder.int8.onnx",
+                HF + "sherpa-onnx-whisper-" + size + ".en/resolve/main/"
+                        + size + ".en-decoder.int8.onnx", dec);
+        p.add(size + ".en-tokens.txt",
+                HF + "sherpa-onnx-whisper-" + size + ".en/resolve/main/"
+                        + size + ".en-tokens.txt", 835554L);
+        return p;
+    }
+
+    /** base.en：74M 参数，153MB。准确度明显好于 tiny，速度仍很快。 */
+    public static Pack asrWhisperBase() {
+        return whisper("base", "英文识别 Whisper base（153MB · 推荐）",
+                29120534L, 130669978L);
+    }
+
+    /** small.en：244M 参数，358MB。日常视频字幕基本不出错。 */
+    public static Pack asrWhisperSmall() {
+        return whisper("small", "英文识别 Whisper small（358MB · 更准）",
+                112442483L, 262223042L);
+    }
+
+    /** medium.en：769M 参数，902MB。专有名词/口音也能扛，速度慢。 */
+    public static Pack asrWhisperMedium() {
+        return whisper("medium", "英文识别 Whisper medium（902MB · 最准）",
+                374196283L, 571055161L);
+    }
+
     /** 英文 ASR：NeMo CTC conformer small int8（46MB，快）。 */
     public static Pack asrNemo() {
         Pack p = new Pack(KIND_ASR, "nemo-ctc-en", "英文识别 NeMo CTC small（46MB）", "nemo-ctc-en");
@@ -132,6 +166,21 @@ public final class ModelRepo {
         p.add("tokens.txt",
                 HF + "sherpa-onnx-nemo-ctc-en-conformer-small/resolve/main/tokens.txt", 11611L);
         return p;
+    }
+
+    /**
+     * 全部可选的英文识别模型，从快到准排列。
+     *
+     * 用户可自行下载并切换 —— 识别不准时换大模型是最直接的办法。
+     */
+    public static List<Pack> asrPacks() {
+        List<Pack> l = new ArrayList<>();
+        l.add(asrNemo());          // 46MB，最快，但准确度一般
+        l.add(asrWhisper());       // 103MB tiny
+        l.add(asrWhisperBase());   // 153MB base
+        l.add(asrWhisperSmall());  // 358MB small
+        l.add(asrWhisperMedium()); // 902MB medium
+        return l;
     }
 
     /**

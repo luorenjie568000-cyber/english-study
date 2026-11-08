@@ -62,9 +62,24 @@ public class VoiceCard {
 
         card.addView(divider(a));
 
-        // 四个模型包，各一行
+        // TTS 包
         for (ModelRepo.Pack p : ModelRepo.all()) {
+            if (!ModelRepo.KIND_TTS.equals(p.kind)) continue;
             card.addView(packRow(a, p));
+            card.addView(divider(a));
+        }
+
+        // 识别模型：四档可选，越往下越准（也越大）
+        card.addView(U.spacer(a, U.px(a, 10)));
+        card.addView(U.bold(a, "识别模型（识别不准就换更准的）", 14,
+                Theme.c(a, R.color.text)));
+        card.addView(U.spacer(a, U.px(a, 2)));
+        card.addView(U.tv(a, "视频里「Seven 听成 students」这类同音错误，换大模型能明显减少。"
+                + "下载后可随时切换，占用空间可删。", 11,
+                Theme.c(a, R.color.text_dim2)));
+        card.addView(U.spacer(a, U.px(a, 6)));
+        for (ModelRepo.Pack p : ModelRepo.asrPacks()) {
+            card.addView(asrRow(a, p));
             card.addView(divider(a));
         }
         return card;
@@ -120,6 +135,66 @@ public class VoiceCard {
         return row;
     }
 
+    /** 识别模型一行：下载 / 选用 / 删除，并标出当前在用哪个。 */
+    private static View asrRow(Activity a, ModelRepo.Pack p) {
+        boolean ready = ModelRepo.ready(a, p);
+        String cur = com.englishstudy.app.data.Store.get("voice.asr", "whisper-tiny.en");
+        boolean active = ready && p.id.equals(cur);
+
+        LinearLayout row = U.row(a);
+        row.setPadding(0, U.px(a, 12), 0, U.px(a, 12));
+
+        LinearLayout col = U.col(a);
+        LinearLayout head = U.row(a);
+        head.addView(U.tv(a, p.title, 14,
+                Theme.c(a, active ? R.color.accent : R.color.text)), U.weight(1));
+        if (active) head.addView(U.pill(a, "在用", Theme.c(a, R.color.accent)));
+        col.addView(head);
+
+        long done = ModelRepo.doneBytes(a, p);
+        long total = p.totalBytes();
+        String sub = ready ? "已下载"
+                : done > 0 ? "已下 " + mb(done) + " / " + mb(total)
+                : "未下载 · " + mb(total);
+        TextView subTv = U.tv(a, sub, 12, Theme.c(a, R.color.text_dim2));
+        subTv.setPadding(0, U.px(a, 2), 0, 0);
+        col.addView(subTv);
+        row.addView(col, U.weight(1));
+
+        TextView action = U.tv(a, ready ? (active ? "" : "选用") : "下载", 13,
+                Theme.c(a, ready ? R.color.primary : R.color.text_dim));
+        action.setPadding(U.px(a, 8), 0, 0, 0);
+        row.addView(action);
+
+        row.setOnClickListener(v -> {
+            if (!ModelRepo.ready(a, p)) {
+                startDownload(a, p, row, null, subTv, action);
+                return;
+            }
+            if (active) {
+                new AlertDialog.Builder(a)
+                        .setTitle(p.title)
+                        .setMessage("删除这个识别模型？（" + mb(total) + "）")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("删除", (d, w) -> {
+                            ModelRepo.delete(a, p);
+                            OfflineAsrEngine.release();
+                            OfflineAsrEngine.init(a);
+                            ((MainActivity) a).refresh();
+                        }).show();
+                return;
+            }
+            com.englishstudy.app.data.Store.put("voice.asr", p.id);
+            OfflineAsrEngine.release();
+            OfflineAsrEngine.init(a);
+            android.widget.Toast.makeText(a,
+                    "已切到 " + p.title.split("（")[0] + "，正在加载…",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            ((MainActivity) a).refresh();
+        });
+        return row;
+    }
+
     // ------------------------------------------------------------ 下载
 
     private static void startDownload(Activity a, ModelRepo.Pack p,
@@ -128,7 +203,7 @@ public class VoiceCard {
         final AtomicBoolean cancelled = new AtomicBoolean(false);
         final boolean[] cancel = new boolean[1];
 
-        title.setText(p.title + " · 下载中");
+        if (title != null) title.setText(p.title + " · 下载中");
         action.setText("取消");
         row.setOnClickListener(v -> {
             cancelled.set(true);
@@ -162,7 +237,7 @@ public class VoiceCard {
             } catch (Exception e) {
                 boolean byUser = cancelled.get();
                 a.runOnUiThread(() -> {
-                    title.setText(p.title);
+                    if (title != null) title.setText(p.title);
                     sub.setText(byUser ? "已取消 · 可断点续传"
                             : "失败：" + e.getMessage() + " · 点按重试");
                     action.setText("下载");
