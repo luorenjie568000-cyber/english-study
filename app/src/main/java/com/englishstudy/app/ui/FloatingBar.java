@@ -125,15 +125,26 @@ public class FloatingBar extends LinearLayout {
             backdropSource.getLocationOnScreen(srcLoc);
             int relLeft = myLoc[0] - srcLoc[0];
             int relTop = myLoc[1] - srcLoc[1];
+            // 抓「胶囊顶部再往上一个高度」的区域：那里一定有内容在绘制，
+            // 且和胶囊位置相邻，视觉上像是从胶囊下面透出来的。
+            int sampleTop = Math.max(0, relTop - getHeight());
             android.graphics.Rect region = new android.graphics.Rect(
-                    relLeft, relTop, relLeft + getWidth(), relTop + getHeight());
+                    relLeft, sampleTop, relLeft + getWidth(), sampleTop + getHeight());
 
             Bitmap old = blurred;
             Bitmap bmp = Glass.blurBehind(backdropSource, region,
                     getWidth(), getHeight(), U.px(ctx, 26));
-            diag("capture w=" + getWidth() + " h=" + getHeight()
-                    + " region=" + region + " bmp=" + (bmp == null ? "null"
+            diag("capture region=" + region + " bmp=" + (bmp == null ? "null"
                     : bmp.getWidth() + "x" + bmp.getHeight()));
+            if (bmp != null) {
+                try {
+                    java.io.FileOutputStream fo = new java.io.FileOutputStream(
+                            new java.io.File(ctx.getFilesDir(), "bar-snap.png"));
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, fo);
+                    fo.close();
+                } catch (Throwable ignored) {
+                }
+            }
             if (bmp != null) {
                 blurred = bmp;
                 if (old != null && !old.isRecycled()) old.recycle();

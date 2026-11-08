@@ -131,8 +131,9 @@ public class MainActivity extends Activity {
         }
         // 内容变了 → 重新抓一次模糊快照（延迟到布局完成后）
         if (floating != null) {
-            floating.postDelayed(floating::refreshBackdrop, 120);
-            floating.postDelayed(floating::refreshBackdrop, 400);
+            floating.postDelayed(floating::refreshBackdrop, 100);
+            floating.postDelayed(floating::refreshBackdrop, 300);
+            floating.postDelayed(floating::refreshBackdrop, 800);
         }
     }
 
