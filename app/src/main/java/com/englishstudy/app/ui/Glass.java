@@ -372,20 +372,40 @@ public final class Glass {
             int w = getWidth(), h = getHeight();
             if (w == 0 || h == 0) return;
             canvas.drawColor(Theme.bgColor(getContext()));
-            if (level() == OFF) return;
 
-            int strength = level() == STRONG ? 0x46 : level() == LIGHT ? 0x1A : 0x2E;
+            // 光晕保留（关闭玻璃档也画，因为它是背景不是玻璃）
+            int strength = level() == OFF ? 0x22
+                    : level() == STRONG ? 0x46 : level() == LIGHT ? 0x1A : 0x2E;
 
-            p.setShader(new RadialGradient(w * 0.18f, h * 0.12f, w * 0.85f,
+            // 左上主光
+            p.setShader(new RadialGradient(w * 0.16f, h * 0.10f, w * 0.95f,
                     new int[]{withAlpha(accent, strength), Color.TRANSPARENT},
                     null, Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, p);
 
-            p.setShader(new RadialGradient(w * 0.92f, h * 0.78f, w * 0.80f,
-                    new int[]{withAlpha(accent2, strength / 2), Color.TRANSPARENT},
+            // 右下辅光
+            p.setShader(new RadialGradient(w * 0.94f, h * 0.82f, w * 0.85f,
+                    new int[]{withAlpha(accent2, strength * 2 / 3), Color.TRANSPARENT},
                     null, Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, p);
 
+            // 中下第三团极淡，让长页面中段不空
+            p.setShader(new RadialGradient(w * 0.5f, h * 0.62f, w * 0.75f,
+                    new int[]{withAlpha(accent, strength / 4), Color.TRANSPARENT},
+                    null, Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, p);
+
+            p.setShader(null);
+
+            // 顶部/底部各压一层极淡暗角，让内容层"浮"在中间（Linear/Craft 的常用手法）
+            p.setShader(new LinearGradient(0, 0, 0, h * 0.18f,
+                    withAlpha(0xFF000000, Theme.light() ? 0x0A : 0x28), Color.TRANSPARENT,
+                    Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h * 0.18f, p);
+            p.setShader(new LinearGradient(0, h * 0.86f, 0, h,
+                    Color.TRANSPARENT, withAlpha(0xFF000000, Theme.light() ? 0x0E : 0x30),
+                    Shader.TileMode.CLAMP));
+            canvas.drawRect(0, h * 0.86f, w, h, p);
             p.setShader(null);
         }
     }
