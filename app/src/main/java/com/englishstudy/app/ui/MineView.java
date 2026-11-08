@@ -51,7 +51,7 @@ public class MineView {
         root.addView(dataCard());
         root.addView(U.spacer(a, 20));
 
-        TextView ver = U.tv(a, "English Study · 原生版 v4.5\n"
+        TextView ver = U.tv(a, "English Study · 原生版 v4.6\n"
                 + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, Theme.c(a, R.color.text_dim2));
         ver.setGravity(Gravity.CENTER);
         ver.setLineSpacing(U.dp(a, 4), 1f);
@@ -131,6 +131,43 @@ public class MineView {
         line.setData(curve);
         card.addView(line);
         return card;
+    }
+
+    private static final int REQ_APKG = 0x81;
+    private static final int REQ_LIST = 0x82;
+
+    private void importApkg() {
+        ((MainActivity) a).pickFile(REQ_APKG);
+    }
+
+    private void importWordList() {
+        ((MainActivity) a).pickFile(REQ_LIST);
+    }
+
+    /** 由 MainActivity 转发过来的选文件结果。 */
+    public void onFilePicked(int requestCode, android.net.Uri uri) {
+        if (uri == null) return;
+        final int req = requestCode;
+        new Thread(() -> {
+            String msg;
+            if (req == REQ_APKG) {
+                com.englishstudy.app.data.AnkiImport.Result r =
+                        com.englishstudy.app.data.AnkiImport.importApkg(a, uri, 0);
+                msg = r.summary();
+            } else {
+                com.englishstudy.app.data.WordListImport.Result r =
+                        com.englishstudy.app.data.WordListImport.importFile(a, uri, 0);
+                msg = r.summary();
+            }
+            final String m = msg;
+            a.runOnUiThread(() -> {
+                new AlertDialog.Builder(a)
+                        .setTitle("导入结果")
+                        .setMessage(m)
+                        .setPositiveButton("好", (d, w) -> ((MainActivity) a).refresh())
+                        .show();
+            });
+        }, "import").start();
     }
 
     private void exportCsv() {
@@ -219,6 +256,23 @@ public class MineView {
                 ? Translate.pairCount() + " 句" : "加载中…"));
         card.addView(divider());
         card.addView(kvRow("翻译历史", History.size() + " 条"));
+
+        card.addView(divider());
+        LinearLayout imp = U.row(a);
+        imp.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
+        imp.setOnClickListener(v -> importApkg());
+        imp.addView(U.tv(a, "导入 Anki apkg", 14, Theme.c(a, R.color.primary)),
+                U.weight(1));
+        imp.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
+        card.addView(imp);
+        card.addView(divider());
+        LinearLayout impList = U.row(a);
+        impList.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
+        impList.setOnClickListener(v -> importWordList());
+        impList.addView(U.tv(a, "导入词表（CSV / TXT）", 14, Theme.c(a, R.color.primary)),
+                U.weight(1));
+        impList.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
+        card.addView(impList);
 
         card.addView(divider());
         LinearLayout exp = U.row(a);

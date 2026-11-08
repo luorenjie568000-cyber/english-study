@@ -167,3 +167,22 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 4. **XML `shape` 资源无法运行时换色** —— 必须改成 `GradientDrawable` 代码构造。
 5. **`Resources.getColor(int, Theme)` 参数是主题不是默认值** —— 编译期就报错。
 6. **测试时设备会自己熄屏** —— `svc power stayon true` + `settings put system screen_off_timeout 1800000`。
+
+### v4.6 补：导入能力
+| 功能 | 实现 |
+|---|---|
+| 导入 Anki apkg | `AnkiImport`：zip 抽出 `collection.anki2/anki21` → SQLite 读 `notes.flds` → 取第一字段当单词 |
+| 导入自定义词表 | `WordListImport`：CSV / TSV / TXT，自动识别分隔符，跳表头，只收英文词 |
+
+真实测试（造了最小 apkg + csv）：
+```
+导入完成：新增 2 个词
+· diligent  —  勤勉的
+· eloquent  —  雄辩的
+
+导入完成：新增 2 个词，跳过 1 个   （跳过的是表头 word,meaning）
+```
+生词本从 123 → 127，5 个词全在。
+
+**未做**：mdx/mdd 导入（需要实现 writemdict 的 key block / record block 解析，
+6–10 人日，且 wmdx 格式边缘情况多；CSV 导入已覆盖绝大多数换词表需求）。

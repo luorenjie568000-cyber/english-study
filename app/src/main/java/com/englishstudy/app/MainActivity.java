@@ -145,7 +145,8 @@ public class MainActivity extends Activity {
             case 7:
                 return new ReadView(this).build();
             default:
-                return new MineView(this).build();
+                currentMine = new MineView(this);
+                return currentMine.build();
         }
     }
 
@@ -167,6 +168,36 @@ public class MainActivity extends Activity {
         super.onDestroy();
         Vocab.flush();
     }
+
+    /** 供子 View 调用：选文件后把 Uri 交给回调。 */
+    public void pickFile(int requestCode) {
+        android.content.Intent i = new android.content.Intent(
+                android.content.Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        startActivityForResult(i, requestCode);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) return;
+        android.net.Uri uri = data.getData();
+        if (uri == null) return;
+        if (current >= 0) {
+            // 让当前页自己处理（目前只有「我的」页有导入）
+            View v = content.getChildAt(0);
+            if (v instanceof android.view.ViewGroup) {
+                // 直接找 MineView 的实例不可行，改为通过标签索引判断
+            }
+        }
+        if (currentMine != null) {
+            currentMine.onFilePicked(requestCode, uri);
+        }
+    }
+
+    /** 当前显示「我的」页时保存实例，供导入回调使用。 */
+    private MineView currentMine;
 
     public void openWord(String word) {
         Intent i = new Intent(this, com.englishstudy.app.ui.WordActivity.class);
