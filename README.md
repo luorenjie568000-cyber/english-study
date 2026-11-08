@@ -208,3 +208,25 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 
 **padding 坑**：外发光要给 View 留边距，但留多了会把卡片内容挤窄
 （第一次给了 16dp×0.6，卡片直接缩了一圈）。改成只留 `glowDyDp`。
+
+### v4.7（2026-11-08 上午，用户反馈）
+1. **悬浮胶囊导航**（`FloatingBar`）：仿 LSPosed 17 的底部悬浮条
+   - 左右 18dp / 下方 20dp 留白，圆角 = 高度一半，看起来浮在内容上
+   - 胶囊本体：比卡片亮一档的底色 + 边缘光 + 顶部高光 + **20dp 柔影**
+   - 选中项：`onDraw` 里画一颗更亮的实心药丸（`dispatchDraw` 会被 child 盖住）
+   - 投影是「浮起来」的关键 —— 贴底通栏怎么调都只是换了个背景色
+2. **分类收窄：9 标签 → 7 标签**
+   - 翻译并进 **词汇**（顶部分段：词汇 / 翻译）
+   - 对话（学伴 Agent）并进 **口语**（三段：跟读 / 场景 / 对话）
+   - 分段状态存 `Store("vocab.seg")` / `Store("speak.tab")`，refresh 重建后能恢复
+3. **修复语速 bug（重要）**
+   - `generate(text, speakerId, speed)` 的第三参是 **speed**，之前传的是 `1.0/rate`
+   - 所以 rate=0.7 时传进去是 **1.43**，变成「0.7 倍速反而更快」
+   - 同时 `setLengthScale` 在初始化时又乘了一次，双重叠加
+   - 修法：`generate(t, 0, r)`，`setLengthScale(1.0f)` 固定
+   - 自检实测：`speed[0.7]=49664 / speed[1.0]=38912 / speed[1.3]=33536` 采样，比例正确
+
+#### 悬浮条踩的坑
+- `dispatchDraw` 里画药丸会被 child 挡住（因为 super 之后才轮到 child，但药丸已在 super 之前画完）→
+  必须用 `onDraw`（时机在背景之后、children 之前），并 `setWillNotDraw(false)`
+- 药丸和胶囊底的亮度差太小会看不见，深色下要拉到 `#46536B` vs `#2A3446`

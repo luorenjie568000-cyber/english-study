@@ -140,6 +140,14 @@ public class App extends Application {
             sb.append("asr.ready=").append(OfflineAsrEngine.ready())
                     .append(" asr.pack=").append(OfflineAsrEngine.loadedPack()).append('\n');
 
+            // 语速自检：0.7 应该比 1.0 长，1.3 应该比 1.0 短
+            String sp = "The weather is really nice today.";
+            for (float r : new float[]{0.7f, 1.0f, 1.3f}) {
+                float[] pcm = OfflineTtsEngine.probeSamplesAt(sp, r);
+                sb.append("speed[").append(r).append("] samples=")
+                        .append(pcm == null ? "null" : pcm.length).append('\n');
+            }
+
             String wav = OfflineTtsEngine.probe("The weather is really nice today.");
             sb.append("tts.probe=").append(wav).append('\n');
 

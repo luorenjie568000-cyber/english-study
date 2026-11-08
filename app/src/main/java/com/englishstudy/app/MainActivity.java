@@ -16,6 +16,7 @@ import com.englishstudy.app.data.Sentences;
 import com.englishstudy.app.data.Translate;
 import com.englishstudy.app.data.Vocab;
 import com.englishstudy.app.ui.ChatView;
+import com.englishstudy.app.ui.FloatingBar;
 import com.englishstudy.app.ui.Glass;
 import com.englishstudy.app.ui.HomeView;
 import com.englishstudy.app.ui.ReadView;
@@ -33,11 +34,10 @@ import com.englishstudy.app.voice.OfflineTtsEngine;
 /** 主界面：底部标签，内容区用原生 View 切换。 */
 public class MainActivity extends Activity {
 
-    public static final String[] TABS = {"学习", "口语", "词汇", "对话", "翻译", "写作", "音标", "阅读", "我的"};
+    public static final String[] TABS = {"学习", "词汇", "口语", "写作", "音标", "阅读", "我的"};
 
     private FrameLayout content;
-    private LinearLayout bar;
-    private TextView[] labels;
+    private FloatingBar floating;
     private int current = -1;
 
     @Override
@@ -61,25 +61,15 @@ public class MainActivity extends Activity {
         root.addView(content, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        bar = U.row(this);
-        Glass.applyBar(bar, this);
-        bar.setPadding(0, U.px(this, 6), 0, U.px(this, 6));
-        root.addView(bar, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 56)));
-
-        labels = new TextView[TABS.length];
-        for (int i = 0; i < TABS.length; i++) {
-            final int idx = i;
-            TextView t = new TextView(this);
-            t.setText(TABS[i]);
-            t.setTextSize(TABS.length > 8 ? 10 : 11);
-            t.setGravity(Gravity.CENTER);
-            t.setTypeface(Typeface.DEFAULT_BOLD);
-            t.setOnClickListener(v -> select(idx));
-            bar.addView(t, new LinearLayout.LayoutParams(0,
-                    LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-            labels[i] = t;
-        }
+        // 悬浮胶囊导航（浮在内容之上，不是贴底通栏）
+        floating = new FloatingBar(this, TABS);
+        floating.setOnTab(this::select);
+        LinearLayout.LayoutParams fbp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 58));
+        fbp.leftMargin = U.px(this, 18);
+        fbp.rightMargin = U.px(this, 18);
+        fbp.bottomMargin = U.px(this, 20);
+        root.addView(floating, fbp);
 
         setContentView(shell);
         select(0);
@@ -110,16 +100,7 @@ public class MainActivity extends Activity {
         // 切页先掐掉上一页的朗读
         com.englishstudy.app.ui.Tts.stop();
         current = idx;
-        for (int i = 0; i < labels.length; i++) {
-            boolean on = i == idx;
-            labels[i].setTextColor(getColor(on ? R.color.primary : R.color.text_dim2));
-            // 选中态用玻璃药丸，未选中透明
-            if (on && Glass.level() != Glass.OFF) {
-                labels[i].setBackground(Glass.pill(this, getColor(R.color.primary)));
-            } else {
-                labels[i].setBackground(null);
-            }
-        }
+        if (floating != null) floating.markSelected(idx);
         content.removeAllViews();
         View v = build(idx);
         content.addView(v, new FrameLayout.LayoutParams(
@@ -131,18 +112,14 @@ public class MainActivity extends Activity {
             case 0:
                 return new HomeView(this).build();
             case 1:
-                return new SpeakView(this).build();
-            case 2:
                 return new VocabView(this).build();
+            case 2:
+                return new SpeakView(this).build();
             case 3:
-                return new ChatView(this).build();
-            case 4:
-                return new TransView(this).build();
-            case 5:
                 return new WriteView(this).build();
-            case 6:
+            case 4:
                 return new IpaView(this).build();
-            case 7:
+            case 5:
                 return new ReadView(this).build();
             default:
                 currentMine = new MineView(this);

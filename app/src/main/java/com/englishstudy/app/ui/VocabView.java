@@ -28,9 +28,15 @@ public class VocabView {
 
     private final Activity a;
     private LinearLayout listBox;
+    /** 0 = 词汇，1 = 翻译。状态存 Store，refresh 重建后能恢复。 */
+    private int seg = Store.getInt("vocab.seg", 0);
+    private LinearLayout body;
+    private View listPart;
+    private TransView trans;
 
     public VocabView(Activity a) {
         this.a = a;
+        this.trans = new TransView(a);
     }
 
     public View build() {
@@ -39,13 +45,70 @@ public class VocabView {
         root.setPadding(p, p, p, 0);
 
         LinearLayout head = U.row(a);
-        head.addView(U.bold(a, "词汇", 24, Theme.c(a, R.color.text)), U.weight(1));
-        String pillName = Store.get("book.unit", "");
-        if (pillName.isEmpty()) pillName = currentBookName();
-        LinearLayout book = U.pill(a, pillName, Theme.c(a, R.color.primary));
-        book.setOnClickListener(v -> pickBook());
-        head.addView(book);
+        head.addView(U.bold(a, seg == 0 ? "词汇" : "翻译", 24,
+                Theme.c(a, R.color.text)), U.weight(1));
+        if (seg == 0) {
+            String pillName = Store.get("book.unit", "");
+            if (pillName.isEmpty()) pillName = currentBookName();
+            LinearLayout book = U.pill(a, pillName, Theme.c(a, R.color.primary));
+            book.setOnClickListener(v -> pickBook());
+            head.addView(book);
+        }
         root.addView(head);
+
+        // 分段：词汇 / 翻译
+        LinearLayout tabs = U.row(a);
+        tabs.setPadding(0, U.px(a, 10), 0, 0);
+        TextView segV = segBtn("词汇", seg == 0, () -> switchSeg(0));
+        TextView segT = segBtn("翻译", seg == 1, () -> switchSeg(1));
+        tabs.addView(segV, U.weight(1));
+        tabs.addView(U.hspacer(a, 8));
+        tabs.addView(segT, U.weight(1));
+        root.addView(tabs);
+
+        body = U.col(a);
+        root.addView(body, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        renderSeg();
+        return root;
+    }
+
+    private TextView segBtn(String text, boolean active, Runnable onClick) {
+        TextView t = U.bold(a, text, 13,
+                Theme.c(a, active ? R.color.primary : R.color.text_dim2));
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(0, U.px(a, 8), 0, U.px(a, 8));
+        t.setBackground(active ? U.primaryBg(a) : U.tileBg(a));
+        if (active) t.setTextColor(0xFF000000 | (Theme.c(a, R.color.primary) & 0x00FFFFFF));
+        t.setOnClickListener(v -> onClick.run());
+        return t;
+    }
+
+    private void switchSeg(int s) {
+        if (seg == s) return;
+        seg = s;
+        Store.putInt("vocab.seg", s);
+        ((MainActivity) a).refresh();
+    }
+
+    private void renderSeg() {
+        body.removeAllViews();
+        if (seg == 1) {
+            body.addView(trans.build(), new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT));
+            return;
+        }
+        body.addView(buildVocabPart(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT));
+    }
+
+    /** 原来的词汇页面（搜索 + 列表）。 */
+    private View buildVocabPart() {
+        LinearLayout root = U.col(a);
+        root.setPadding(0, 0, 0, 0);
 
         EditText search = new EditText(a);
         search.setHint("搜索单词或中文释义");
@@ -73,6 +136,11 @@ public class VocabView {
 
         renderList("");
         return root;
+    }
+
+    /** 旧入口：外部若还调用 build()，走新逻辑。 */
+    private View buildLegacy() {
+        return build();
     }
 
     private String currentBookName() {

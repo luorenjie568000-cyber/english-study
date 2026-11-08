@@ -35,7 +35,7 @@ public class SpeakView {
 
     private final Activity a;
     private LinearLayout root;
-    private int tab;                    // 0 跟读 / 1 场景
+    private int tab;    // 0 跟读 / 1 场景 / 2 对话
     private long recStart;              // 录音起始时刻，用于显示时长
     private String target = Scenes.SHADOW[0][1];
     private TextView targetTv;          // 练习句展示，选句时原地更新不重建页面
@@ -45,9 +45,18 @@ public class SpeakView {
     private Scenes.Scene scene;
     private int lineIdx;
     private final List<String[]> sceneLog = new ArrayList<>();  // {你, 命中率}
+    private final ChatView chat = new ChatView((Activity) a0());
+
+    private static Activity sA;
 
     public SpeakView(Activity a) {
         this.a = a;
+        sA = a;
+        this.tab = com.englishstudy.app.data.Store.getInt("speak.tab", 0);
+    }
+
+    private Activity a0() {
+        return a;
     }
 
     public View build() {
@@ -70,31 +79,51 @@ public class SpeakView {
         root.addView(U.spacer(a, 14));
 
         LinearLayout tabs = U.row(a);
-        tabs.addView(tabBtn("跟读打分", tab == 0, () -> {
+        tabs.addView(tabBtn("跟读", tab == 0, () -> {
             tab = 0;
             scene = null;
+            saveTab();
             render();
         }), U.weight(1));
-        tabs.addView(U.hspacer(a, 8));
-        tabs.addView(tabBtn("场景对话", tab == 1, () -> {
+        tabs.addView(U.hspacer(a, 6));
+        tabs.addView(tabBtn("场景", tab == 1, () -> {
             tab = 1;
+            saveTab();
+            render();
+        }), U.weight(1));
+        tabs.addView(U.hspacer(a, 6));
+        tabs.addView(tabBtn("对话", tab == 2, () -> {
+            tab = 2;
+            saveTab();
             render();
         }), U.weight(1));
         root.addView(tabs);
         root.addView(U.spacer(a, 14));
 
         if (tab == 0) shadowPanel();
-        else scenePanel();
+        else if (tab == 1) scenePanel();
+        else chatPanel();
+    }
+
+    private void saveTab() {
+        com.englishstudy.app.data.Store.putInt("speak.tab", tab);
     }
 
     private View tabBtn(String text, boolean active, Runnable onClick) {
         TextView t = U.bold(a, text, 14,
-                a.getColor(active ? R.color.white : R.color.text_dim));
+                Theme.c(a, active ? R.color.white : R.color.text_dim));
         t.setBackground(active ? U.primaryBg(a) : U.tileBg(a));
         t.setGravity(Gravity.CENTER);
         t.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
         t.setOnClickListener(v -> onClick.run());
         return t;
+    }
+
+    /** 对话：直接复用 ChatView 的界面（学伴 Agent）。 */
+    private void chatPanel() {
+        View v = chat.build();
+        root.addView(v, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
     }
 
     // ------------------------------------------------------------ 跟读打分

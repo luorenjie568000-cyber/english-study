@@ -87,7 +87,8 @@ public final class OfflineTtsEngine {
                 vits.setDataDir(ModelRepo.espeakDir(app).getAbsolutePath());
                 vits.setNoiseScale(0.667f);
                 vits.setNoiseScaleW(0.8f);
-                vits.setLengthScale(1.0f / Math.max(0.5f, rate));
+                // 运行时语速由 generate 的 speed 参数控制；这里固定 1.0，否则会和 speed 相乘叠加
+                vits.setLengthScale(1.0f);
 
                 OfflineTtsModelConfig mc = new OfflineTtsModelConfig();
                 mc.setVits(vits);
@@ -190,7 +191,7 @@ public final class OfflineTtsEngine {
             try {
                 if (engine == null || gen != generation) return;
                 long t0 = System.currentTimeMillis();
-                GeneratedAudio audio = engine.generate(t, 0, 1.0f / r);
+                GeneratedAudio audio = engine.generate(t, 0, r);   // 第三参是 speed
                 if (audio == null) {
                     diag("say gen=null");
                     return;
@@ -373,6 +374,21 @@ public final class OfflineTtsEngine {
                     + "s wav=" + f.length() + "B";
         } catch (Throwable e) {
             return "ERR " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
+
+    /** 自检用：按指定语速合成，返回采样。 */
+    public static float[] probeSamplesAt(String text, float speed) {
+        try {
+            long t0 = System.currentTimeMillis();
+            while (tts == null && !failed && System.currentTimeMillis() - t0 < 30000) {
+                Thread.sleep(200);
+            }
+            if (tts == null) return null;
+            GeneratedAudio audio = tts.generate(text, 0, speed);
+            return audio == null ? null : audio.getSamples();
+        } catch (Throwable e) {
+            return null;
         }
     }
 
