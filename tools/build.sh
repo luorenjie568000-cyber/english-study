@@ -30,7 +30,7 @@ echo "== 2. aapt2 link"
 "$BT/aapt2" link -o "$OUT/base.apk" -I "$ANDROID_ALL" \
   --manifest "$SRC/AndroidManifest.xml" \
   --java "$OUT/gen" --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 480 --version-name "4.8" \
+  --version-code 490 --version-name "4.9" \
   "$OUT/res.zip"
 
 echo "== 3. javac"

@@ -43,11 +43,11 @@ public class FloatingBar extends LinearLayout {
     public FloatingBar(Context c, String[] names) {
         super(c);
         this.ctx = c;
-        barHeight = U.px(c, 58);
+        barHeight = U.px(c, 50);   // 更扁 → 椭圆端，不是圆头方块
 
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        int padH = U.px(c, 6);
+        int padH = U.px(c, 4);
         setPadding(padH, 0, padH, 0);
 
         // 胶囊本体：玻璃背景 + 投影（浮起来的关键）
@@ -173,8 +173,8 @@ public class FloatingBar extends LinearLayout {
             View t = labels[current];
             int left = t.getLeft() + U.px(ctx, 5);
             int right = t.getRight() - U.px(ctx, 5);
-            int top = U.px(ctx, 7);
-            int bottom = getHeight() - U.px(ctx, 7);
+            int top = U.px(ctx, 5);
+            int bottom = getHeight() - U.px(ctx, 5);
             android.graphics.drawable.Drawable bg = selectedPill();
             bg.setBounds(left, top, right, bottom);
             bg.draw(canvas);

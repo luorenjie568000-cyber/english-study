@@ -257,3 +257,36 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 
 我们已具备的对应能力：导入文章 ✅ / 逐句朗读 ✅ / 点词查义 ✅ /
 跟读评分 ✅ / 生词本 ✅。还缺「音频/视频跟读」和「句子语法分析」。
+
+### v4.9（2026-11-08 上午）
+1. **底部胶囊改椭圆端**：高度 58→50dp（更扁），左右留白 18→22dp，
+   圆角保持半高 → 视觉上是椭圆端，不是圆头方块
+2. **句子语法分析**（对应 1000h 的「句子分析」）
+   - `engine/Syntax.java`：规则引擎，拆出主语/谓语/宾语/表语/状语
+   - 同时给出句型（主谓宾/主系表/主谓（被动））、时态、语态
+   - 阅读页**长按任意句子**弹出分析
+   - 用词典 `pos` 字段判词性，词典没收录的不规则动词（bought/wrote/gave…）用表兜底
+3. **分类再收窄：7 → 6 标签**
+   - **音标**并进 **口语**（4 段：跟读 / 场景 / 对话 / 音标）
+     理由：跟读本来就需要音素知识，放一起更顺
+   - 最终：学习 / 词汇（词汇·翻译） / 口语（跟读·场景·对话·音标） / 写作 / 阅读（短文·我的文章） / 我的
+
+#### 语法分析的实测（8 句样本）
+```
+The old man walked into the bakery.
+  主语=The old man  谓语=walked  状语=into the bakery   主谓 / 一般过去时
+He bought two loaves of bread and a cup of coffee.
+  主语=He  谓语=bought  宾语=two loaves  状语=of bread   主谓宾
+The weather is really nice today.
+  主语=The weather  谓语=is really  表语=nice           主系表
+She has been learning English for about three years.
+  主语=She  谓语=has been learning  宾语=English        主谓宾 / 现在完成时
+The book was written by a young teacher.
+  主语=The book  谓语=was written  状语=by a young teacher  主谓（被动）/ 被动
+```
+
+#### 踩的坑
+- 不能靠后缀判词性：`old` 会因 `-ed` 被当动词 → 必须查词典 `pos`
+- 数词（two/three）不能当主语或谓语
+- `be + ing` 是进行（主动），`be + 过去分词` 才是被动 —— 之前一律判被动
+- 状语不能吃句末标点

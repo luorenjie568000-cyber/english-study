@@ -46,6 +46,7 @@ public class SpeakView {
     private int lineIdx;
     private final List<String[]> sceneLog = new ArrayList<>();  // {你, 命中率}
     private ChatView chat;   // 懒加载：字段初始化时 a 还没赋值
+    private IpaView ipa;     // 同样懒加载
 
     public SpeakView(Activity a) {
         this.a = a;
@@ -90,12 +91,19 @@ public class SpeakView {
             saveTab();
             render();
         }), U.weight(1));
+        tabs.addView(U.hspacer(a, 6));
+        tabs.addView(tabBtn("音标", tab == 3, () -> {
+            tab = 3;
+            saveTab();
+            render();
+        }), U.weight(1));
         root.addView(tabs);
         root.addView(U.spacer(a, 14));
 
         if (tab == 0) shadowPanel();
         else if (tab == 1) scenePanel();
-        else chatPanel();
+        else if (tab == 2) chatPanel();
+        else ipaPanel();
     }
 
     private void saveTab() {
@@ -110,6 +118,13 @@ public class SpeakView {
         t.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
         t.setOnClickListener(v -> onClick.run());
         return t;
+    }
+
+    /** 音标：复用 IpaView（44 个音素，点音标听单音）。 */
+    private void ipaPanel() {
+        if (ipa == null) ipa = new IpaView(a);
+        root.addView(ipa.build(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
     }
 
     /** 对话：直接复用 ChatView 的界面（学伴 Agent）。 */

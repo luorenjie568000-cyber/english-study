@@ -82,7 +82,12 @@ public class ReaderActivity extends Activity {
             all.setOnClickListener(v -> Tts.say(this, ps.text));
             tools.addView(all, U.weight(1));
             root.addView(tools);
-            root.addView(U.spacer(this, 12));
+            root.addView(U.spacer(this, 6));
+            TextView tip = U.tv(this, "长按句子看语法成分（主谓宾 / 时态 / 语态）", 11,
+                    Theme.c(this, R.color.text_dim2));
+            tip.setGravity(android.view.Gravity.CENTER);
+            root.addView(tip);
+            root.addView(U.spacer(this, 10));
 
             LinearLayout card = U.card(this);
             for (String s : ps.sentences()) {
@@ -105,6 +110,11 @@ public class ReaderActivity extends Activity {
                 tv.setTextColor(Theme.c(this, R.color.text));
                 tv.setText(buildSpans(t));
                 tv.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+                // 长按句子 → 语法成分分析
+                tv.setOnLongClickListener(v -> {
+                    showSyntax(sentence);
+                    return true;
+                });
                 line.addView(tv, U.weight(1));
 
                 card.addView(line);
@@ -114,6 +124,75 @@ public class ReaderActivity extends Activity {
 
         sv.addView(root);
         setContentView(sv);
+    }
+
+    /** 弹出一句的语法成分分析。 */
+    private void showSyntax(String sentence) {
+        com.englishstudy.app.engine.Syntax.Result r =
+                com.englishstudy.app.engine.Syntax.analyze(sentence);
+        if (!r.ok()) {
+            android.widget.Toast.makeText(this, "这句没分析出来，可能是不完整句",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        LinearLayout box = U.col(this);
+        int p = U.px(this, 18);
+        box.setPadding(p, p, p, p);
+
+        TextView src = U.tv(this, sentence, 13, Theme.c(this, R.color.text_dim));
+        src.setLineSpacing(U.dp(this, 4), 1f);
+        box.addView(src);
+        box.addView(U.spacer(this, 12));
+
+        // 句型 / 时态 / 语态
+        LinearLayout tags = U.row(this);
+        tags.addView(U.pill(this, r.pattern, Theme.c(this, R.color.primary)));
+        tags.addView(U.hspacer(this, 6));
+        tags.addView(U.pill(this, r.tense, Theme.c(this, R.color.accent)));
+        tags.addView(U.hspacer(this, 6));
+        tags.addView(U.pill(this, r.voice, Theme.c(this, R.color.warn)));
+        box.addView(tags);
+        box.addView(U.spacer(this, 14));
+
+        // 成分列表
+        for (com.englishstudy.app.engine.Syntax.Part part : r.parts) {
+            LinearLayout row = U.row(this);
+            row.setPadding(0, U.px(this, 6), 0, U.px(this, 6));
+            TextView role = U.tv(this, part.role, 11, roleColor(part.role));
+            role.setPadding(U.px(this, 8), U.px(this, 3), U.px(this, 8), U.px(this, 3));
+            role.setBackground(U.pillBg(this));
+            row.addView(role);
+            row.addView(U.hspacer(this, 10));
+            TextView txt = U.tv(this, part.text, 14, Theme.c(this, R.color.text));
+            row.addView(txt, U.weight(1));
+            box.addView(row);
+        }
+
+        if (!r.notes.isEmpty()) {
+            box.addView(U.spacer(this, 12));
+            for (String n : r.notes) {
+                box.addView(U.tv(this, "· " + n, 11, Theme.c(this, R.color.text_dim2)));
+            }
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("句子分析")
+                .setView(new android.widget.ScrollView(this) {{
+                    addView(box);
+                }})
+                .setPositiveButton("好", null)
+                .show();
+    }
+
+    private int roleColor(String role) {
+        switch (role) {
+            case "主语": return Theme.c(this, R.color.primary);
+            case "谓语": return Theme.c(this, R.color.accent);
+            case "宾语": return Theme.c(this, R.color.warn);
+            case "表语": return Theme.c(this, R.color.purple);
+            default: return Theme.c(this, R.color.text_dim);
+        }
     }
 
     private Spannable buildSpans(String text) {

@@ -34,7 +34,7 @@ import com.englishstudy.app.voice.OfflineTtsEngine;
 /** 主界面：底部标签，内容区用原生 View 切换。 */
 public class MainActivity extends Activity {
 
-    public static final String[] TABS = {"学习", "词汇", "口语", "写作", "音标", "阅读", "我的"};
+    public static final String[] TABS = {"学习", "词汇", "口语", "写作", "阅读", "我的"};
 
     private FrameLayout content;
     private FloatingBar floating;
@@ -65,10 +65,10 @@ public class MainActivity extends Activity {
         floating = new FloatingBar(this, TABS);
         floating.setOnTab(this::select);
         LinearLayout.LayoutParams fbp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 58));
-        fbp.leftMargin = U.px(this, 18);
-        fbp.rightMargin = U.px(this, 18);
-        fbp.bottomMargin = U.px(this, 20);
+                LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 50));
+        fbp.leftMargin = U.px(this, 22);
+        fbp.rightMargin = U.px(this, 22);
+        fbp.bottomMargin = U.px(this, 22);
         root.addView(floating, fbp);
 
         setContentView(shell);
@@ -118,8 +118,6 @@ public class MainActivity extends Activity {
             case 3:
                 return new WriteView(this).build();
             case 4:
-                return new IpaView(this).build();
-            case 5:
                 currentRead = new ReadView(this);
                 return currentRead.build();
             default:
