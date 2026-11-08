@@ -199,7 +199,7 @@ public class WordActivity extends Activity {
         root.addView(RepeatCard.build(this, repeatTarget));
 
         sv.addView(root);
-        setContentView(sv);
+        setContentView(Glass.wrapWithBackdrop(this, sv));
         refreshStar();
     }
 

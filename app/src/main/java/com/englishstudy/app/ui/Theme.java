@@ -45,21 +45,21 @@ public final class Theme {
     }
 
     private static final Palette[] PALETTES = {
-            // NIGHT
+            // NIGHT（text_dim2 从 5F7085 提到 A8B6C8 —— 原来在深卡上只有 2.9:1，看不清）
             new Palette(0xFF0B0F14, 0xFF111721, 0xFF161E2A, 0xFF1D2635, 0xFF25303F,
-                    0xFFE8EEF7, 0xFF8A9AB0, 0xFF5F7085, 0xFF4F7CFF, 0xFF34D399),
+                    0xFFEDF3FB, 0xFFA8B6C8, 0xFF8A9AB0, 0xFF6D93FF, 0xFF3EE0A6),
             // FOREST
             new Palette(0xFF0D1512, 0xFF131F1A, 0xFF17241F, 0xFF1D2E27, 0xFF24382E,
-                    0xFFE4EFE8, 0xFF8AA899, 0xFF5E7A6B, 0xFF3ECF8E, 0xFF7BD9AF),
+                    0xFFEAF4ED, 0xFFA6C2B4, 0xFF8AA899, 0xFF4FD9A0, 0xFF8CE5BE),
             // SUNSET
             new Palette(0xFF160F14, 0xFF211620, 0xFF271A26, 0xFF32202F, 0xFF3D2A39,
-                    0xFFF3E8EE, 0xFFB394A8, 0xFF7E6473, 0xFFFF7A59, 0xFFFFA07A),
-            // PAPER（浅色）
-            new Palette(0xFFF4F1EA, 0xFFFBF9F4, 0xFFFDFBF6, 0xFFF0EBE1, 0xFFDDD5C6,
-                    0xFF2B2620, 0xFF6B6257, 0xFF8D8377, 0xFF8A6D3B, 0xFF4E8A6A),
+                    0xFFF7EEF3, 0xFFC9AEBF, 0xFFB394A8, 0xFFFF8C6E, 0xFFFFB08E),
+            // PAPER（浅色；深色文字要更深，浅底上 8D8377 只到 3.8:1）
+            new Palette(0xFFF4F1EA, 0xFFFBF9F4, 0xFFFDFBF6, 0xFFF0EBE1, 0xFFCFC6B4,
+                    0xFF1F1B16, 0xFF4E463C, 0xFF6B6257, 0xFF7A5D2E, 0xFF3B7355),
             // MIDNIGHT（纯黑 OLED）
             new Palette(0xFF000000, 0xFF08090B, 0xFF0E1013, 0xFF14171B, 0xFF1E2228,
-                    0xFFE6EAF0, 0xFF8B939F, 0xFF5A6270, 0xFF5B8DFF, 0xFF3DDBA4),
+                    0xFFEDF1F7, 0xFFA3ACB9, 0xFF868F9C, 0xFF7BA3FF, 0xFF4FE3AE),
     };
 
     private static final String[] NAMES = {"深蓝", "森林", "日落", "纸墨", "纯黑"};

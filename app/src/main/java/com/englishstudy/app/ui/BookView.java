@@ -49,7 +49,7 @@ public class BookView extends Activity {
         }
 
         sv.addView(root);
-        setContentView(sv);
+        setContentView(Glass.wrapWithBackdrop(this, sv));
     }
 
     private View bookCard(Books.Book bk) {

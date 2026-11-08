@@ -36,6 +36,11 @@ public class FloatingBar extends LinearLayout {
     private final View indicator;
     private int current = -1;
     private OnTab listener;
+    /** 药丸当前位置（以「格」为单位，可以是小数，用于插值动画）。 */
+    private float posFrom = -1;
+    private float posTo = -1;
+    private long animStart;
+    private static final long ANIM_MS = 320;
 
     /** 胶囊高度。 */
     private final int barHeight;
@@ -88,32 +93,48 @@ public class FloatingBar extends LinearLayout {
     public void select(int i) {
         if (i < 0 || i >= labels.length) return;
         if (i == current) return;
+        animateTo(i);
+        if (listener != null) listener.onTab(i);
+    }
 
+    /** 药丸从当前位置滑到第 i 格，同时切换文字颜色。 */
+    private void animateTo(int i) {
         if (current >= 0) {
             labels[current].setTextColor(Theme.c(ctx, R.color.text_dim));
             labels[current].setTypeface(android.graphics.Typeface.DEFAULT);
         }
+        posFrom = current < 0 ? i : currentPos();
+        posTo = i;
         current = i;
         labels[i].setTextColor(Theme.c(ctx, R.color.primary));
         labels[i].setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
 
-        // 药丸滑到目标位置（用 translationX + 宽度动画）
-        post(this::moveIndicator);
-        if (listener != null) listener.onTab(i);
+        animStart = System.currentTimeMillis();
+        postInvalidateOnAnimation();
+        postDelayed(this::finishAnim, ANIM_MS + 40);
+    }
+
+    private void finishAnim() {
+        posFrom = posTo;
+        invalidate();
+    }
+
+    /** 当前插值位置。 */
+    private float currentPos() {
+        if (posFrom < 0 || posTo < 0) return current;
+        long dt = System.currentTimeMillis() - animStart;
+        if (dt >= ANIM_MS) return posTo;
+        float t = dt / (float) ANIM_MS;
+        // ease-out cubic：起步快收尾慢，像 LSPosed 那种
+        float e = 1f - (1f - t) * (1f - t) * (1f - t);
+        return posFrom + (posTo - posFrom) * e;
     }
 
     /** 只更新高亮，不回调（供外部主动切换时用，避免递归）。 */
     public void markSelected(int i) {
         if (i < 0 || i >= labels.length) return;
-        if (current >= 0 && current < labels.length) {
-            labels[current].setTextColor(Theme.c(ctx, R.color.text_dim));
-            labels[current].setTypeface(android.graphics.Typeface.DEFAULT);
-        }
-        current = i;
-        labels[i].setTextColor(Theme.c(ctx, R.color.primary));
-        labels[i].setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        post(this::moveIndicator);
-        invalidate();
+        if (i == current) return;
+        animateTo(i);
     }
 
     /** 选中态药丸：比胶囊底更亮一档的实心块（LSPosed 那种）。 */
@@ -154,7 +175,8 @@ public class FloatingBar extends LinearLayout {
         } else {
             indicator.animate()
                     .x(left + U.px(ctx, 4))
-                    .setDuration(180)
+                    .setDuration(320)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
                     .start();
         }
     }
@@ -168,16 +190,29 @@ public class FloatingBar extends LinearLayout {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        // 药丸画在背景之上、文字之下（onDraw 的时机正好）
         if (current >= 0 && labels[current].getWidth() > 0) {
-            View t = labels[current];
-            int left = t.getLeft() + U.px(ctx, 5);
-            int right = t.getRight() - U.px(ctx, 5);
+            float pos = currentPos();
+            int from = (int) Math.floor(pos);
+            int to = (int) Math.ceil(pos);
+            float frac = pos - from;
+            if (from < 0) from = 0;
+            if (to >= labels.length) to = labels.length - 1;
+            if (from >= labels.length) from = labels.length - 1;
+
+            float l1 = labels[from].getLeft(), r1 = labels[from].getRight();
+            float l2 = labels[to].getLeft(), r2 = labels[to].getRight();
+            float left = l1 + (l2 - l1) * frac;
+            float right = r1 + (r2 - r1) * frac;
+
+            int pad = U.px(ctx, 5);
             int top = U.px(ctx, 5);
             int bottom = getHeight() - U.px(ctx, 5);
             android.graphics.drawable.Drawable bg = selectedPill();
-            bg.setBounds(left, top, right, bottom);
+            bg.setBounds((int) left + pad, top, (int) right - pad, bottom);
             bg.draw(canvas);
+
+            // 动画进行中：继续请求下一帧
+            if (Math.abs(posTo - pos) > 0.001f) postInvalidateOnAnimation();
         }
         super.onDraw(canvas);
     }

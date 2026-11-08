@@ -95,7 +95,7 @@ public class StudyActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        setContentView(root);
+        setContentView(Glass.wrapWithBackdrop(this, root));
         fill(mode);
         next();
     }

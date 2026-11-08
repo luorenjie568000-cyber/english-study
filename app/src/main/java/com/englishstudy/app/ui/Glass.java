@@ -390,6 +390,26 @@ public final class Glass {
         }
     }
 
+    /**
+     * 给一个 Activity 的内容套上「全局背景」。
+     *
+     * 之前的问题：内容不足一屏时，下方是纯黑（Activity 默认背景），
+     * 和上面带光晕的区域割裂。这里用 FrameLayout 包一层，
+     * 背景层永远铺满屏幕，内容层在其上。
+     */
+    public static android.widget.FrameLayout wrapWithBackdrop(Context c, View content) {
+        android.widget.FrameLayout shell = new android.widget.FrameLayout(c);
+        Backdrop bd = new Backdrop(c);
+        bd.setAccents(Theme.accentColor(c), Theme.accent2(c));
+        shell.addView(bd, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+        shell.addView(content, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+        return shell;
+    }
+
     // ---------------------------------------------------------------- 工具
 
     public static int withAlpha(int color, int alpha) {

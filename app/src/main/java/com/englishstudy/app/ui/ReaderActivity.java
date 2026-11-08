@@ -7,6 +7,7 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.UnderlineSpan;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -123,10 +124,19 @@ public class ReaderActivity extends Activity {
         }
 
         sv.addView(root);
-        setContentView(sv);
+        setContentView(Glass.wrapWithBackdrop(this, sv));
     }
 
     /** 弹出一句的语法成分分析。 */
+    /** 中日韩统一表意文字 / 假名 / 谚文。 */
+    private static boolean isCjk(char c) {
+        return (c >= 0x4E00 && c <= 0x9FFF)     // CJK 统一汉字
+                || (c >= 0x3400 && c <= 0x4DBF)  // 扩展 A
+                || (c >= 0x3040 && c <= 0x30FF)  // 平假名 / 片假名
+                || (c >= 0xAC00 && c <= 0xD7AF)  // 谚文
+                || (c >= 0xF900 && c <= 0xFAFF); // 兼容汉字
+    }
+
     private void showSyntax(String sentence) {
         com.englishstudy.app.engine.Syntax.Result r =
                 com.englishstudy.app.engine.Syntax.analyze(sentence);
@@ -199,7 +209,46 @@ public class ReaderActivity extends Activity {
         SpannableString sp = new SpannableString(text);
         int i = 0, n = text.length();
         while (i < n) {
-            if (!Character.isLetter(text.charAt(i))) {
+            char ch = text.charAt(i);
+
+            // 中日韩文字：没有空格，按「最长匹配」从 4 字往 1 字试词典
+            if (isCjk(ch)) {
+                int maxLen = Math.min(4, n - i);
+                int hit = 0;
+                for (int len = maxLen; len >= 1; len--) {
+                    String cand = text.substring(i, Math.min(n, i + len));
+                    if (com.englishstudy.app.data.Dict.lookup(cand) != null) {
+                        hit = len;
+                        break;
+                    }
+                }
+                if (hit > 0) {
+                    // 词典里真有这个词：可点，加下划线提示
+                    final String cand = text.substring(i, i + hit);
+                    sp.setSpan(new UnderlineSpan(), i, i + hit,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    sp.setSpan(new ClickableSpan() {
+                        @Override
+                        public void onClick(View v) {
+                            android.widget.Toast.makeText(ReaderActivity.this,
+                                    cand + "：词典里暂未收录该语言",
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void updateDrawState(android.text.TextPaint ds) {
+                            ds.setColor(Theme.c(ReaderActivity.this, R.color.text));
+                            ds.setUnderlineText(false);
+                        }
+                    }, i, i + hit, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    i += hit;
+                } else {
+                    i++;
+                }
+                continue;
+            }
+
+            if (!Character.isLetter(ch)) {
                 i++;
                 continue;
             }
@@ -209,17 +258,33 @@ public class ReaderActivity extends Activity {
 
             Dict.Entry e = Dict.lookup(w);
             if (e != null) {
-                boolean known = Vocab.get(w) != null;
-                int color = known ? R.color.accent : R.color.primary;
-                sp.setSpan(new ForegroundColorSpan(getColor(color)), i, j,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                // 正文保持可读：默认不染色，只有「已在生词本」的词加淡下划线，
+                // 点按仍然能查义。之前每个词都染蓝 → 整篇都是蓝的，反而看不清。
+                boolean inVocab = Vocab.get(w) != null;
+                if (inVocab) {
+                    sp.setSpan(new UnderlineSpan(), i, j,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    sp.setSpan(new ForegroundColorSpan(
+                                    Theme.c(this, R.color.accent)), i, j,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
                 final String word = e.word;
+                final boolean mark = inVocab;
                 sp.setSpan(new ClickableSpan() {
                     @Override
                     public void onClick(View v) {
                         Intent it = new Intent(ReaderActivity.this, WordActivity.class);
                         it.putExtra("word", word);
                         startActivity(it);
+                    }
+
+                    /** 关键：不覆写这里，所有可点词都会变成主题蓝。 */
+                    @Override
+                    public void updateDrawState(android.text.TextPaint ds) {
+                        ds.setColor(mark ? Theme.c(ReaderActivity.this, R.color.accent)
+                                : Theme.c(ReaderActivity.this, R.color.text));
+                        ds.setUnderlineText(false);
+                        ds.setFakeBoldText(false);
                     }
                 }, i, j, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
