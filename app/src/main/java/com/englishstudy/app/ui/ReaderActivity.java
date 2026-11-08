@@ -24,6 +24,9 @@ import java.util.List;
 public class ReaderActivity extends Activity {
 
     private Readings.Passage ps;
+    private String lang = "en";
+    private boolean multi;
+    private LinearLayout sentenceBox;
 
     @Override
     protected void onCreate(android.os.Bundle b) {
@@ -48,6 +51,20 @@ public class ReaderActivity extends Activity {
             ps.title = art.title;
             ps.titleZh = "我的文章";
             ps.text = art.text;
+        }
+
+        // 检测语言：不是英文就加载对应多语言词典（中文/日文/韩文）
+        lang = com.englishstudy.app.data.MultiDict.detect(ps == null ? "" : ps.text);
+        multi = !"en".equals(lang);
+        diag("open article lang=" + lang + " multi=" + multi + " len="
+                + (ps == null ? 0 : ps.text.length()));
+        if (multi) {
+            new Thread(() -> {
+                final boolean ok = com.englishstudy.app.data.MultiDict.open(this, lang);
+                runOnUiThread(() -> {
+                    if (!isFinishing() && ok) rerender();
+                });
+            }, "dict-open").start();
         }
 
         ScrollView sv = new ScrollView(this);
@@ -91,6 +108,7 @@ public class ReaderActivity extends Activity {
             root.addView(U.spacer(this, 10));
 
             LinearLayout card = U.card(this);
+            sentenceBox = card;
             for (String s : ps.sentences()) {
                 String t = s.trim();
                 if (t.isEmpty()) continue;
@@ -135,6 +153,93 @@ public class ReaderActivity extends Activity {
                 || (c >= 0x3040 && c <= 0x30FF)  // 平假名 / 片假名
                 || (c >= 0xAC00 && c <= 0xD7AF)  // 谚文
                 || (c >= 0xF900 && c <= 0xFAFF); // 兼容汉字
+    }
+
+    /** 词典就绪后重建句子文本（init 里第一次渲染时词典还没解压完）。 */
+    private void rerender() {
+        diag("rerender ps=" + (ps != null) + " box=" + (sentenceBox != null)
+                + " multi=" + multi + " lang=" + lang
+                + " ready=" + com.englishstudy.app.data.MultiDict.ready(lang));
+        if (ps == null || sentenceBox == null) return;
+        sentenceBox.removeAllViews();
+        for (String raw : ps.sentences()) {
+            String t = raw.trim();
+            if (t.isEmpty()) continue;
+            final String sentence = t;
+
+            LinearLayout line = U.row(this);
+            line.setGravity(android.view.Gravity.TOP);
+            line.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
+
+            TextView spk = U.tv(this, "🔊", 14, Theme.c(this, R.color.text_dim));
+            spk.setPadding(0, U.px(this, 3), U.px(this, 8), 0);
+            spk.setOnClickListener(v -> Tts.say(this, sentence));
+            line.addView(spk);
+
+            TextView tv = new TextView(this);
+            tv.setTextSize(16);
+            tv.setLineSpacing(U.dp(this, 7), 1f);
+            tv.setTextColor(Theme.c(this, R.color.text));
+            tv.setText(buildSpans(t));
+            tv.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+            tv.setOnLongClickListener(v -> {
+                showSyntax(sentence);
+                return true;
+            });
+            line.addView(tv, U.weight(1));
+            sentenceBox.addView(line);
+        }
+    }
+
+    /** 多语言词条弹窗：词头 + 读音 + 英文释义 + 存生词本。 */
+    /** 诊断日志（排查多语言渲染用）。 */
+    private void diag(String line) {
+        try {
+            java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(
+                    new java.io.File(getFilesDir(), "reader-diag.txt"), true));
+            w.println(System.currentTimeMillis() % 1000000 + " " + line);
+            w.close();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void showMultiWord(String word, String reading, String trans) {
+        LinearLayout box = U.col(this);
+        int p = U.px(this, 18);
+        box.setPadding(p, p, p, p);
+
+        LinearLayout head = U.row(this);
+        head.addView(U.bold(this, word, 24, Theme.c(this, R.color.text)));
+        if (!reading.isEmpty()) {
+            head.addView(U.hspacer(this, 10));
+            TextView rd = U.tv(this, reading, 14, Theme.c(this, R.color.text_dim));
+            rd.setPadding(0, U.px(this, 6), 0, 0);
+            head.addView(rd);
+        }
+        box.addView(head);
+
+        box.addView(U.spacer(this, 10));
+        TextView t = U.tv(this, trans, 14, Theme.c(this, R.color.text));
+        t.setLineSpacing(U.dp(this, 5), 1f);
+        box.addView(t);
+
+        box.addView(U.spacer(this, 8));
+        box.addView(U.tv(this, "来源：CC-CEDICT / JMdict / kengdic（英释）", 10,
+                Theme.c(this, R.color.text_dim2)));
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("查词")
+                .setView(new android.widget.ScrollView(this) {{
+                    addView(box);
+                }})
+                .setNegativeButton("关闭", null)
+                .setPositiveButton("存生词本", (d, w) -> {
+                    com.englishstudy.app.data.Vocab.getOrCreate(word);
+                    com.englishstudy.app.data.Vocab.flush();
+                    android.widget.Toast.makeText(this, "已加入生词本",
+                            android.widget.Toast.LENGTH_SHORT).show();
+                })
+                .show();
     }
 
     private void showSyntax(String sentence) {
@@ -222,26 +327,36 @@ public class ReaderActivity extends Activity {
                         break;
                     }
                 }
-                if (hit > 0) {
-                    // 词典里真有这个词：可点，加下划线提示
-                    final String cand = text.substring(i, i + hit);
-                    sp.setSpan(new UnderlineSpan(), i, i + hit,
+                // 多语言词典按最长匹配找词，命中的才可点
+                int len = 0;
+                com.englishstudy.app.data.MultiDict.Entry me = null;
+                if (multi) {
+                    int[] hl = new int[1];
+                    me = com.englishstudy.app.data.MultiDict.longestAt(lang, text, i, hl);
+                    len = hl[0];
+                }
+                if (me != null && len > 0) {
+                    final String cand = me.word;
+                    final String reading = me.reading;
+                    final String trans = me.trans;
+                    sp.setSpan(new UnderlineSpan(), i, i + len,
                             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                     sp.setSpan(new ClickableSpan() {
                         @Override
                         public void onClick(View v) {
-                            android.widget.Toast.makeText(ReaderActivity.this,
-                                    cand + "：词典里暂未收录该语言",
-                                    android.widget.Toast.LENGTH_SHORT).show();
+                            showMultiWord(cand, reading, trans);
                         }
 
                         @Override
                         public void updateDrawState(android.text.TextPaint ds) {
+                            // 中文没有空格，靠「淡色 + 细下划线」暗示可点；
+                            // 全部关掉的话用户根本不知道哪里能点
                             ds.setColor(Theme.c(ReaderActivity.this, R.color.text));
-                            ds.setUnderlineText(false);
+                            ds.setUnderlineText(true);
+                            ds.underlineColor = Theme.c(ReaderActivity.this, R.color.text_dim2);
                         }
-                    }, i, i + hit, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    i += hit;
+                    }, i, i + len, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    i += len;
                 } else {
                     i++;
                 }
