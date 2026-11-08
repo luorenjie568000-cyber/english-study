@@ -27,6 +27,10 @@ public class ReaderActivity extends Activity {
     @Override
     protected void onCreate(android.os.Bundle b) {
         super.onCreate(b);
+        String articleId = getIntent().getStringExtra("articleId");
+        com.englishstudy.app.data.Articles.Item art =
+                articleId == null ? null : com.englishstudy.app.data.Articles.byId(articleId);
+
         String id = getIntent().getStringExtra("id");
         Readings.load(this);
         for (Readings.Passage p : Readings.all()) {
@@ -35,37 +39,46 @@ public class ReaderActivity extends Activity {
                 break;
             }
         }
+        // 用户导入的文章：包成 Passage，这样点词查义/点句朗读都能复用
+        if (ps == null && art != null) {
+            ps = new Readings.Passage();
+            ps.id = art.id;
+            ps.level = "";
+            ps.title = art.title;
+            ps.titleZh = "我的文章";
+            ps.text = art.text;
+        }
 
         ScrollView sv = new ScrollView(this);
         LinearLayout root = U.col(this);
-        root.setBackgroundColor(getColor(R.color.bg));
+        root.setBackgroundColor(Theme.c(this, R.color.bg));
         int p = U.px(this, 16);
         root.setPadding(p, p, p, U.px(this, 24));
 
         // 顶栏
         LinearLayout top = U.row(this);
-        TextView back = U.tv(this, "‹", 26, getColor(R.color.text_dim));
+        TextView back = U.tv(this, "‹", 26, Theme.c(this, R.color.text_dim));
         back.setPadding(U.px(this, 4), 0, U.px(this, 12), 0);
         back.setOnClickListener(v -> finish());
         top.addView(back);
         top.addView(U.tv(this, ps == null ? "阅读" : ps.title, 15,
-                getColor(R.color.text_dim)), U.weight(1));
+                Theme.c(this, R.color.text_dim)), U.weight(1));
         root.addView(top);
         root.addView(U.spacer(this, 12));
 
         if (ps == null) {
-            root.addView(U.tv(this, "文章不存在", 14, getColor(R.color.text_dim)));
+            root.addView(U.tv(this, "文章不存在", 14, Theme.c(this, R.color.text_dim)));
         } else {
-            root.addView(U.bold(this, ps.title, 22, getColor(R.color.text)));
+            root.addView(U.bold(this, ps.title, 22, Theme.c(this, R.color.text)));
             if (!ps.titleZh.isEmpty()) {
                 root.addView(U.spacer(this, 4));
                 root.addView(U.tv(this, ps.titleZh + " · " + ps.words() + " 词", 12,
-                        getColor(R.color.text_dim2)));
+                        Theme.c(this, R.color.text_dim2)));
             }
             root.addView(U.spacer(this, 14));
 
             LinearLayout tools = U.row(this);
-            TextView all = U.ghostButton(this, "🔊 通读一遍", getColor(R.color.primary));
+            TextView all = U.ghostButton(this, "🔊 通读一遍", Theme.c(this, R.color.primary));
             all.setOnClickListener(v -> Tts.say(this, ps.text));
             tools.addView(all, U.weight(1));
             root.addView(tools);
@@ -81,7 +94,7 @@ public class ReaderActivity extends Activity {
                 line.setGravity(android.view.Gravity.TOP);
                 line.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
 
-                TextView spk = U.tv(this, "🔊", 14, getColor(R.color.text_dim2));
+                TextView spk = U.tv(this, "🔊", 14, Theme.c(this, R.color.text_dim2));
                 spk.setPadding(0, U.px(this, 3), U.px(this, 8), 0);
                 spk.setOnClickListener(v -> Tts.say(this, sentence));
                 line.addView(spk);
@@ -89,7 +102,7 @@ public class ReaderActivity extends Activity {
                 TextView tv = new TextView(this);
                 tv.setTextSize(16);
                 tv.setLineSpacing(U.dp(this, 7), 1f);
-                tv.setTextColor(getColor(R.color.text));
+                tv.setTextColor(Theme.c(this, R.color.text));
                 tv.setText(buildSpans(t));
                 tv.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
                 line.addView(tv, U.weight(1));

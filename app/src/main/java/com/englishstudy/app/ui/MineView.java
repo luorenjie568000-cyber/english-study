@@ -51,7 +51,7 @@ public class MineView {
         root.addView(dataCard());
         root.addView(U.spacer(a, 20));
 
-        TextView ver = U.tv(a, "English Study · 原生版 v4.7\n"
+        TextView ver = U.tv(a, "English Study · 原生版 v4.8\n"
                 + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, Theme.c(a, R.color.text_dim2));
         ver.setGravity(Gravity.CENTER);
         ver.setLineSpacing(U.dp(a, 4), 1f);

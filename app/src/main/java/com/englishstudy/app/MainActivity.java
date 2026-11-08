@@ -120,7 +120,8 @@ public class MainActivity extends Activity {
             case 4:
                 return new IpaView(this).build();
             case 5:
-                return new ReadView(this).build();
+                currentRead = new ReadView(this);
+                return currentRead.build();
             default:
                 currentMine = new MineView(this);
                 return currentMine.build();
@@ -168,13 +169,16 @@ public class MainActivity extends Activity {
                 // 直接找 MineView 的实例不可行，改为通过标签索引判断
             }
         }
-        if (currentMine != null) {
+        if (requestCode == 0x91) {
+            if (currentRead != null) currentRead.onArticleFile(uri);
+        } else if (currentMine != null) {
             currentMine.onFilePicked(requestCode, uri);
         }
     }
 
     /** 当前显示「我的」页时保存实例，供导入回调使用。 */
     private MineView currentMine;
+    private ReadView currentRead;
 
     public void openWord(String word) {
         Intent i = new Intent(this, com.englishstudy.app.ui.WordActivity.class);

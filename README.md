@@ -230,3 +230,30 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 - `dispatchDraw` 里画药丸会被 child 挡住（因为 super 之后才轮到 child，但药丸已在 super 之前画完）→
   必须用 `onDraw`（时机在背景之后、children 之前），并 `setWillNotDraw(false)`
 - 药丸和胶囊底的亮度差太小会看不见，深色下要拉到 `#46536B` vs `#2A3446`
+
+### v4.8（2026-11-08 上午）
+修复三个用户反馈 + 新功能：
+
+1. **口语页闪退**
+   `ChatView chat = new ChatView(a)` 写在字段初始化里，那时构造器的 `a` 还没赋值
+   → `NullPointerException` in `U.col(Context)`。改成懒加载 `if (chat == null) chat = new ChatView(a)`。
+
+2. **词汇/翻译分段栏字看不清**
+   未选中项原来用 `text_dim2` 文字 + 深色底，对比度太低。
+   改成 `text` 色文字 + 卡片色底 + 1px 描边。
+
+3. **阅读页支持导入自己的文章**（对应网页版的「粘贴/导入文章」）
+   - `data/Articles.java`：JSON 存在 `filesDir/articles.json`
+   - 阅读页右上「＋ 导入文章」：粘贴正文或从 txt/md 选文件
+   - 导入的文章排在内置短文之前，显示词数 / 预估阅读时长
+   - 打开后复用 `ReaderActivity`，点词查义、点句朗读、通读一遍全部可用
+   - 长按卡片可删除
+
+#### 参考 1000h.org（Enjoy App）的设计
+它的核心是「1000 小时可理解输入」：
+- 导入音频/视频/文章 → 逐句可视化跟读
+- 每个句子单独评分，错误的音标标红
+- 生词一键加入记忆系统
+
+我们已具备的对应能力：导入文章 ✅ / 逐句朗读 ✅ / 点词查义 ✅ /
+跟读评分 ✅ / 生词本 ✅。还缺「音频/视频跟读」和「句子语法分析」。

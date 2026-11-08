@@ -45,18 +45,11 @@ public class SpeakView {
     private Scenes.Scene scene;
     private int lineIdx;
     private final List<String[]> sceneLog = new ArrayList<>();  // {你, 命中率}
-    private final ChatView chat = new ChatView((Activity) a0());
-
-    private static Activity sA;
+    private ChatView chat;   // 懒加载：字段初始化时 a 还没赋值
 
     public SpeakView(Activity a) {
         this.a = a;
-        sA = a;
         this.tab = com.englishstudy.app.data.Store.getInt("speak.tab", 0);
-    }
-
-    private Activity a0() {
-        return a;
     }
 
     public View build() {
@@ -121,6 +114,7 @@ public class SpeakView {
 
     /** 对话：直接复用 ChatView 的界面（学伴 Agent）。 */
     private void chatPanel() {
+        if (chat == null) chat = new ChatView(a);
         View v = chat.build();
         root.addView(v, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));

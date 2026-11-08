@@ -75,12 +75,22 @@ public class VocabView {
     }
 
     private TextView segBtn(String text, boolean active, Runnable onClick) {
-        TextView t = U.bold(a, text, 13,
-                Theme.c(a, active ? R.color.primary : R.color.text_dim2));
+        // 未选中：比卡片亮一档的底 + text 色文字（原来 text_dim2 在深底上看不清）
+        TextView t = U.bold(a, text, 13, Theme.c(a,
+                active ? R.color.white : R.color.text));
         t.setGravity(Gravity.CENTER);
-        t.setPadding(0, U.px(a, 8), 0, U.px(a, 8));
-        t.setBackground(active ? U.primaryBg(a) : U.tileBg(a));
-        if (active) t.setTextColor(0xFF000000 | (Theme.c(a, R.color.primary) & 0x00FFFFFF));
+        t.setPadding(0, U.px(a, 9), 0, U.px(a, 9));
+        if (active) {
+            t.setBackground(U.primaryBg(a));
+        } else {
+            android.graphics.drawable.GradientDrawable g =
+                    new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            g.setCornerRadius(U.px(a, 14));
+            g.setColor(Glass.withAlpha(Theme.cardColor(a), 0xFF));
+            g.setStroke(Math.max(1, U.px(a, 1)), Theme.c(a, R.color.line));
+            t.setBackground(g);
+        }
         t.setOnClickListener(v -> onClick.run());
         return t;
     }
