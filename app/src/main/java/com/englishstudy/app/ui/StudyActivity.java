@@ -277,7 +277,7 @@ public class StudyActivity extends Activity {
             TextView zhBtn = U.tv(this, zhOn[0] ? "隐藏中文" : "看中文", 12,
                     getColor(R.color.primary));
             zhBtn.setPadding(U.px(this, 8), U.px(this, 2), U.px(this, 8), U.px(this, 2));
-            zhBtn.setBackgroundResource(R.drawable.bg_pill);
+            zhBtn.setBackground(U.pillBg(this));
             exHead.addView(zhBtn);
             exCard.addView(exHead);
 
@@ -320,7 +320,7 @@ public class StudyActivity extends Activity {
         for (int g = 1; g <= 4; g++) {
             LinearLayout box = U.col(this);
             box.setGravity(Gravity.CENTER);
-            box.setBackgroundResource(R.drawable.bg_tile);
+            box.setBackground(U.tileBg(this));
             box.setPadding(U.px(this, 6), U.px(this, 12), U.px(this, 6), U.px(this, 12));
 
             TextView lb = U.bold(this, labels[g - 1], 14, getColor(colors[g - 1]));

@@ -142,3 +142,28 @@ su -c "cat /data/data/com.englishstudy.app/files/voice-diag.txt"
 | 首启引导 | P0-8 | 定目标 → 选词书 → 立刻开始第一组（照 Duolingo 的顺序） |
 
 顺带：`Streak.mark()` 挂在 `StudyActivity.applyGrade()` 里，复习一次记一次。
+
+### v4.6（2026-11-08 上午）
+**界面视觉升级**（用户要求「液态玻璃 + 可调节」）：
+
+- **液态玻璃**（`Glass.java`）：4 档强度（关闭/轻/标准/强），参数化控制
+  - 底色半透明 + 顶部高光渐变 + 边缘描边三层叠加
+  - 玻璃感来自「边缘光 + 高光」，不是模糊（Android 上 `setRenderEffect`
+    模糊的是 View 自己内容，会把文字糊掉，不能用）
+  - 关闭档完全退回纯色卡片，0 成本
+- **全屏光晕背景**（`Glass.Backdrop`）：两团径向渐变，玻璃要有东西可透才有质感
+- **5 套主题**（`Theme.java`）：深蓝 / 森林 / 日落 / 纸墨（浅色）/ 纯黑（OLED）
+  - 颜色表是静态的，切主题后 `recreate()` 生效
+  - 182 处 `getColor(R.color.x)` 统一改走 `Theme.c(ctx, R.color.x)`
+  - 按钮/药丸/卡片背景从 XML 资源改成代码绘制，才能跟主题
+  - 热力图色阶由主题主色派生（`0.35 + i*0.16` 四档）
+- **首页重排**：打卡热力图并入进度卡、词库状态压成一行，一屏看得下
+
+#### 这轮踩的坑
+1. **`View.setRenderEffect` 模糊的是自己** —— 不是背后。给卡片加它 = 把卡片文字糊掉。
+2. **垂直线性布局里 `WRAP_CONTENT` 拿不到全宽** —— 热力图必须显式 `MATCH_PARENT`。
+3. **热力图格子尺寸不能用 `getWidth()` 在 onDraw 里算** —— 那时可能还是 0，
+   要把 `onMeasure` 的结果存成字段。
+4. **XML `shape` 资源无法运行时换色** —— 必须改成 `GradientDrawable` 代码构造。
+5. **`Resources.getColor(int, Theme)` 参数是主题不是默认值** —— 编译期就报错。
+6. **测试时设备会自己熄屏** —— `svc power stayon true` + `settings put system screen_off_timeout 1800000`。

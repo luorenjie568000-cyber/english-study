@@ -50,11 +50,20 @@ public final class U {
         return l;
     }
 
-    /** 圆角卡片容器。 */
+    /** 圆角卡片容器（玻璃质感由 Glass 决定，关闭时退回纯色）。 */
     public static LinearLayout card(Context c) {
         LinearLayout l = col(c);
-        l.setBackgroundResource(R.drawable.bg_card);
+        Glass.apply(l, Theme.cardColor(c), c);
         int p = px(c, 16);
+        l.setPadding(p, p, p, p);
+        return l;
+    }
+
+    /** 次级卡片：比主卡片更深一点，用于嵌套信息块。 */
+    public static LinearLayout cardAlt(Context c) {
+        LinearLayout l = col(c);
+        Glass.apply(l, Glass.withAlpha(Theme.cardColor(c), 0xF0), c);
+        int p = px(c, 14);
         l.setPadding(p, p, p, p);
         return l;
     }
@@ -62,7 +71,7 @@ public final class U {
     /** 小圆角标签。 */
     public static LinearLayout pill(Context c, String text, int color) {
         LinearLayout box = row(c);
-        box.setBackgroundResource(R.drawable.bg_pill);
+        box.setBackground(pillBg(c));
         int px = px(c, 10), py = px(c, 4);
         box.setPadding(px, py, px, py);
         box.addView(tv(c, text, 11, color));
@@ -101,10 +110,58 @@ public final class U {
         return p;
     }
 
-    /** 主按钮：蓝底白字。 */
+    /** 圆角胶囊背景（跟随主题）。 */
+    public static android.graphics.drawable.GradientDrawable pillBg(Context c) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(px(c, 999));
+        g.setColor(Glass.withAlpha(Theme.cardColor(c), 0xE0));
+        g.setStroke(Math.max(1, px(c, 1)), Theme.c(c, R.color.line));
+        return g;
+    }
+
+    /** 圆角方块背景（跟随主题）。 */
+    public static android.graphics.drawable.GradientDrawable tileBg(Context c) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(px(c, 14));
+        g.setColor(Glass.withAlpha(Theme.cardColor(c), 0xF0));
+        g.setStroke(Math.max(1, px(c, 1)), Theme.c(c, R.color.line));
+        return g;
+    }
+
+    /** 主题色圆角背景（主按钮 / 自己发的消息气泡）。 */
+    public static android.graphics.drawable.GradientDrawable primaryBg(Context c) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(px(c, 14));
+        g.setColor(Theme.c(c, R.color.primary));
+        return g;
+    }
+
+    /** 圆角气泡背景（对方的消息）。 */
+    public static android.graphics.drawable.GradientDrawable bubbleBg(Context c) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(px(c, 14));
+        g.setColor(Glass.withAlpha(Theme.cardColor(c), 0xE8));
+        g.setStroke(Math.max(1, px(c, 1)), Theme.c(c, R.color.line));
+        return g;
+    }
+
+    /** 主按钮：主题色底 + 白字。 */
     public static TextView primaryButton(Context c, String text) {
         TextView t = bold(c, text, 15, 0xFFFFFFFF);
-        t.setBackgroundResource(R.drawable.bg_primary);
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(px(c, 14));
+        g.setColor(Theme.c(c, R.color.primary));
+        t.setBackground(g);
         t.setGravity(Gravity.CENTER);
         t.setPadding(0, px(c, 13), 0, px(c, 13));
         return t;
@@ -113,7 +170,7 @@ public final class U {
     /** 次级按钮：描边。 */
     public static TextView ghostButton(Context c, String text, int color) {
         TextView t = tv(c, text, 14, color);
-        t.setBackgroundResource(R.drawable.bg_tile);
+        t.setBackground(tileBg(c));
         t.setGravity(Gravity.CENTER);
         t.setPadding(0, px(c, 12), 0, px(c, 12));
         return t;

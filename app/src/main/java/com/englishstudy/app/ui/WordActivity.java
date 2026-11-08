@@ -138,7 +138,7 @@ public class WordActivity extends Activity {
             TextView zhBtn = U.tv(this, zhOn[0] ? "隐藏中文" : "看中文", 12,
                     getColor(R.color.primary));
             zhBtn.setPadding(U.px(this, 8), U.px(this, 2), U.px(this, 8), U.px(this, 2));
-            zhBtn.setBackgroundResource(R.drawable.bg_pill);
+            zhBtn.setBackground(U.pillBg(this));
             exHead.addView(zhBtn);
             exCard.addView(exHead);
             exCard.addView(U.tv(this, ex.size() + " 句 · 点句子朗读", 11,
@@ -255,9 +255,9 @@ public class WordActivity extends Activity {
     }
 
     private TextView tag(String text, int colorRes) {
-        TextView t = U.tv(this, text, 10, getColor(colorRes));
+        TextView t = U.tv(this, text, 10, Theme.c(this, colorRes));
         t.setPadding(U.px(this, 7), U.px(this, 2), U.px(this, 7), U.px(this, 2));
-        t.setBackgroundResource(R.drawable.bg_pill);
+        t.setBackground(U.pillBg(this));
         return t;
     }
 

@@ -19,17 +19,17 @@ public final class RepeatCard {
     public static LinearLayout build(Activity a, String target) {
         final String tgt = target == null ? "" : target.trim();
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "跟读练习", 13, a.getColor(R.color.text_dim)));
+        card.addView(U.bold(a, "跟读练习", 13, Theme.c(a, R.color.text_dim)));
 
-        final TextView state = U.tv(a, "按住下方按钮朗读", 14, a.getColor(R.color.text_dim));
+        final TextView state = U.tv(a, "按住下方按钮朗读", 14, Theme.c(a, R.color.text_dim));
         card.addView(U.spacer(a, 4));
         card.addView(state);
 
-        final TextView score = U.tv(a, "", 22, a.getColor(R.color.text));
+        final TextView score = U.tv(a, "", 22, Theme.c(a, R.color.text));
         card.addView(score);
 
-        TextView btn = U.bold(a, "🎤 开始跟读", 14, a.getColor(R.color.white));
-        btn.setBackgroundResource(R.drawable.bg_primary);
+        TextView btn = U.bold(a, "🎤 开始跟读", 14, Theme.c(a, R.color.white));
+        btn.setBackground(U.primaryBg(a));
         btn.setGravity(Gravity.CENTER);
         btn.setPadding(0, U.px(a, 12), 0, U.px(a, 12));
         btn.setOnClickListener(v -> {

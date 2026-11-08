@@ -43,10 +43,10 @@ public class HomeView {
         int leech = Vocab.countByStatus(Card.LEECH);
 
         // 顶部问候
-        root.addView(U.bold(a, greet(), 24, a.getColor(R.color.text)));
+        root.addView(U.bold(a, greet(), 24, Theme.c(a, R.color.text)));
         root.addView(U.spacer(a, 4));
         root.addView(U.tv(a, due > 0 ? "今天有 " + due + " 个词到期，趁热打铁"
-                : "今日已清空，去学点新词吧", 13, a.getColor(R.color.text_dim)));
+                : "今日已清空，去学点新词吧", 13, Theme.c(a, R.color.text_dim)));
         root.addView(U.spacer(a, 18));
 
         // 今日进度环
@@ -71,16 +71,16 @@ public class HomeView {
         }
         ringRow.addView(stats, U.weight(1));
         ringCard.addView(ringRow);
+
+        // 打卡热力图并进这张卡，省一整块空间
+        ringCard.addView(U.spacer(a, 12));
+        ringCard.addView(U.divider(a, Theme.c(a, R.color.line)));
+        ringCard.addView(U.spacer(a, 10));
+        LinearLayout streakBox = HeatmapView.summary(a, null);
+        ringCard.addView(streakBox, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         root.addView(ringCard);
-
-        root.addView(U.spacer(a, 14));
-
-        // 打卡热力图（连续天数是留存的核心指标，放首页）
-        LinearLayout streakCard = U.card(a);
-        streakCard.addView(U.bold(a, "打卡", 13, a.getColor(R.color.text_dim)));
-        streakCard.addView(U.spacer(a, 10));
-        streakCard.addView(HeatmapView.summary(a, null));
-        root.addView(streakCard);
 
         root.addView(U.spacer(a, 14));
 
@@ -90,23 +90,23 @@ public class HomeView {
         review.setOnClickListener(v -> startStudy(StudyActivity.MODE_REVIEW));
         actions.addView(review, U.weight(1));
         actions.addView(U.hspacer(a, 10));
-        TextView learn = U.ghostButton(a, "学新词", a.getColor(R.color.primary));
+        TextView learn = U.ghostButton(a, "学新词", Theme.c(a, R.color.primary));
         learn.setOnClickListener(v -> startStudy(StudyActivity.MODE_NEW));
         actions.addView(learn, U.weight(1));
         root.addView(actions);
 
         root.addView(U.spacer(a, 18));
 
-        // 数据状态
-        LinearLayout info = U.card(a);
-        info.addView(U.bold(a, "词库状态", 13, a.getColor(R.color.text_dim)));
-        info.addView(U.spacer(a, 10));
-        info.addView(kv("内置词典", Dict.ready() ? Dict.size() + " 词" : "加载中…"));
-        info.addView(U.spacer(a, 6));
-        info.addView(kv("例句库", Sentences.ready()
-                ? Sentences.wordCount() + " 词有例句" : "加载中…"));
-        info.addView(U.spacer(a, 6));
-        info.addView(kv("生词本", Vocab.size() + " 词"));
+        // 词库状态：一行紧凑展示，不再占一张卡
+        LinearLayout info = U.row(a);
+        info.setPadding(U.px(a, 4), U.px(a, 6), U.px(a, 4), 0);
+        info.addView(U.tv(a, Dict.ready() ? Dict.size() + " 词" : "加载中…", 11,
+                Theme.c(a, R.color.text_dim2)));
+        info.addView(U.tv(a, " · ", 11, Theme.c(a, R.color.text_dim2)));
+        info.addView(U.tv(a, Sentences.ready() ? Sentences.wordCount() + " 词有例句" : "…",
+                11, Theme.c(a, R.color.text_dim2)));
+        info.addView(U.tv(a, " · ", 11, Theme.c(a, R.color.text_dim2)));
+        info.addView(U.tv(a, "生词本 " + Vocab.size(), 11, Theme.c(a, R.color.text_dim2)));
         root.addView(info);
 
         sv.addView(root);
@@ -121,15 +121,15 @@ public class HomeView {
 
     private View statLine(String label, String value, int colorRes) {
         LinearLayout row = U.row(a);
-        row.addView(U.tv(a, label, 13, a.getColor(R.color.text_dim)), U.weight(1));
-        row.addView(U.bold(a, value, 15, a.getColor(colorRes)));
+        row.addView(U.tv(a, label, 13, Theme.c(a, R.color.text_dim)), U.weight(1));
+        row.addView(U.bold(a, value, 15, Theme.c(a, colorRes)));
         return row;
     }
 
     private View kv(String k, String v) {
         LinearLayout row = U.row(a);
-        row.addView(U.tv(a, k, 13, a.getColor(R.color.text_dim)), U.weight(1));
-        row.addView(U.tv(a, v, 13, a.getColor(R.color.text)));
+        row.addView(U.tv(a, k, 13, Theme.c(a, R.color.text_dim)), U.weight(1));
+        row.addView(U.tv(a, v, 13, Theme.c(a, R.color.text)));
         return row;
     }
 

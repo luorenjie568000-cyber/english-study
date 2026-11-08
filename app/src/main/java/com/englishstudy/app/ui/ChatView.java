@@ -44,19 +44,19 @@ public class ChatView {
 
     public View build() {
         LinearLayout outer = U.col(a);
-        outer.setBackgroundColor(a.getColor(R.color.bg));
+        outer.setBackgroundColor(Theme.c(a, R.color.bg));
 
         // 顶部
         LinearLayout top = U.row(a);
         top.setPadding(U.px(a, 16), U.px(a, 14), U.px(a, 12), U.px(a, 8));
         LinearLayout titleBox = U.col(a);
-        titleBox.addView(U.bold(a, "学伴", 22, a.getColor(R.color.text)));
-        titleBox.addView(U.tv(a, subtitle(), 11, a.getColor(R.color.text_dim2)));
+        titleBox.addView(U.bold(a, "学伴", 22, Theme.c(a, R.color.text)));
+        titleBox.addView(U.tv(a, subtitle(), 11, Theme.c(a, R.color.text_dim2)));
         top.addView(titleBox, U.weight(1));
 
-        TextView gear = U.tv(a, "设置", 13, a.getColor(R.color.primary));
+        TextView gear = U.tv(a, "设置", 13, Theme.c(a, R.color.primary));
         gear.setPadding(U.px(a, 12), U.px(a, 8), U.px(a, 12), U.px(a, 8));
-        gear.setBackgroundResource(R.drawable.bg_pill);
+        gear.setBackground(U.pillBg(a));
         gear.setOnClickListener(v -> showSettings());
         top.addView(gear);
         outer.addView(top);
@@ -74,9 +74,9 @@ public class ChatView {
         LinearLayout chips = U.row(a);
         chips.setPadding(U.px(a, 14), U.px(a, 4), U.px(a, 14), U.px(a, 6));
         for (String c : new String[]{"apple 怎么读", "今天复习什么", "翻译这句", "改我的句子"}) {
-            TextView chip = U.tv(a, c, 11, a.getColor(R.color.text_dim));
+            TextView chip = U.tv(a, c, 11, Theme.c(a, R.color.text_dim));
             chip.setPadding(U.px(a, 10), U.px(a, 5), U.px(a, 10), U.px(a, 5));
-            chip.setBackgroundResource(R.drawable.bg_pill);
+            chip.setBackground(U.pillBg(a));
             chip.setOnClickListener(v -> {
                 input.setText(c);
                 input.setSelection(c.length());
@@ -92,20 +92,20 @@ public class ChatView {
         // 输入区
         LinearLayout bar = U.row(a);
         bar.setPadding(U.px(a, 12), U.px(a, 8), U.px(a, 12), U.px(a, 14));
-        bar.setBackgroundColor(a.getColor(R.color.bg2));
+        bar.setBackgroundColor(Theme.c(a, R.color.bg2));
 
         input = new EditText(a);
         input.setHint("问点什么…");
-        input.setHintTextColor(a.getColor(R.color.text_dim2));
-        input.setTextColor(a.getColor(R.color.text));
+        input.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        input.setTextColor(Theme.c(a, R.color.text));
         input.setTextSize(15);
-        input.setBackgroundResource(R.drawable.bg_tile);
+        input.setBackground(U.tileBg(a));
         input.setPadding(U.px(a, 14), U.px(a, 10), U.px(a, 14), U.px(a, 10));
         input.setMaxLines(4);
         bar.addView(input, U.weight(1));
 
-        send = U.bold(a, "发送", 14, a.getColor(R.color.white));
-        send.setBackgroundResource(R.drawable.bg_primary);
+        send = U.bold(a, "发送", 14, Theme.c(a, R.color.white));
+        send.setBackground(primaryBg(a));
         send.setGravity(Gravity.CENTER);
         send.setPadding(U.px(a, 16), U.px(a, 10), U.px(a, 16), U.px(a, 10));
         send.setOnClickListener(v -> submit());
@@ -121,6 +121,14 @@ public class ChatView {
         }
         renderAll();
         return outer;
+    }
+
+    private android.graphics.drawable.Drawable primaryBg(Activity ctx) {
+        return U.primaryBg(ctx);
+    }
+
+    private android.graphics.drawable.Drawable bubbleBg(Activity ctx) {
+        return U.bubbleBg(ctx);
     }
 
     private String subtitle() {
@@ -165,7 +173,7 @@ public class ChatView {
         tv.setTextSize(14);
         tv.setLineSpacing(U.dp(a, 5), 1f);
         tv.setTextColor(a.getColor(mine ? R.color.white : R.color.text));
-        tv.setBackgroundResource(mine ? R.drawable.bg_primary : R.drawable.bg_card);
+        tv.setBackground(mine ? primaryBg(a) : bubbleBg(a));
         int ph = U.px(a, 13), pv = U.px(a, 10);
         tv.setPadding(ph, pv, ph, pv);
         tv.setTextIsSelectable(true);
@@ -198,7 +206,7 @@ public class ChatView {
         bubbles.add(new String[]{"user", text});
         addBubble("user", text);
 
-        final TextView thinking = U.tv(a, "…", 13, a.getColor(R.color.text_dim2));
+        final TextView thinking = U.tv(a, "…", 13, Theme.c(a, R.color.text_dim2));
         thinking.setPadding(U.px(a, 4), U.px(a, 8), 0, 0);
         feed.addView(thinking);
         scrollBottom();
@@ -234,7 +242,7 @@ public class ChatView {
 
         box.addView(U.tv(a, "任何 OpenAI 兼容接口都行（OpenAI / DeepSeek / 通义 / "
                 + "本地 Ollama / LM Studio）。不填就一直用离线模式。", 12,
-                a.getColor(R.color.text_dim2)));
+                Theme.c(a, R.color.text_dim2)));
         box.addView(U.spacer(a, 12));
 
         final EditText base = field(box, "接口地址", "https://api.openai.com/v1",
@@ -245,7 +253,7 @@ public class ChatView {
 
         box.addView(U.spacer(a, 8));
         TextView hint = U.tv(a, "提示：Key 只存在本机 SharedPreferences，不会上传到别处。",
-                11, a.getColor(R.color.text_dim2));
+                11, Theme.c(a, R.color.text_dim2));
         box.addView(hint);
         box.addView(U.spacer(a, 14));
 
@@ -257,9 +265,9 @@ public class ChatView {
                 ? "已下载 " + (com.englishstudy.app.voice.LocalLlm.doneBytes(a,
                         com.englishstudy.app.voice.LocalLlm.pack()) / 1048576) + "MB"
                 : "未下载";
-        local.addView(U.tv(a, "本地模型（端侧）", 14, a.getColor(R.color.text)), U.weight(1));
+        local.addView(U.tv(a, "本地模型（端侧）", 14, Theme.c(a, R.color.text)), U.weight(1));
         local.addView(U.tv(a, Agent.localMode() ? "已启用 · " + lm : lm + " ›", 12,
-                a.getColor(R.color.primary)));
+                Theme.c(a, R.color.primary)));
         local.setOnClickListener(v -> LocalModelPanel.show(a));
         box.addView(local);
 
@@ -285,14 +293,14 @@ public class ChatView {
     }
 
     private EditText field(LinearLayout box, String label, String hint, String value) {
-        box.addView(U.tv(a, label, 12, a.getColor(R.color.text_dim)));
+        box.addView(U.tv(a, label, 12, Theme.c(a, R.color.text_dim)));
         EditText e = new EditText(a);
         e.setHint(hint);
         e.setText(value);
-        e.setHintTextColor(a.getColor(R.color.text_dim2));
-        e.setTextColor(a.getColor(R.color.text));
+        e.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        e.setTextColor(Theme.c(a, R.color.text));
         e.setTextSize(14);
-        e.setBackgroundResource(R.drawable.bg_tile);
+        e.setBackground(U.tileBg(a));
         int ph = U.px(a, 12), pv = U.px(a, 8);
         e.setPadding(ph, pv, ph, pv);
         e.setSingleLine(true);

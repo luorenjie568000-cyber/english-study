@@ -35,10 +35,10 @@ public final class Onboarding {
         LinearLayout box = U.col(a);
         int p = U.px(a, 20);
         box.setPadding(p, p, p, p);
-        box.addView(U.bold(a, "每天学多少词？", 17, a.getColor(R.color.text)));
+        box.addView(U.bold(a, "每天学多少词？", 17, Theme.c(a, R.color.text)));
         box.addView(U.spacer(a, 6));
         box.addView(U.tv(a, "选一个能坚持的量。之后在「我的」里随时能改。",
-                12, a.getColor(R.color.text_dim2)));
+                12, Theme.c(a, R.color.text_dim2)));
 
         new AlertDialog.Builder(a)
                 .setView(box)

@@ -37,7 +37,7 @@ public class MineView {
         int p = U.px(a, 16);
         root.setPadding(p, p, p, U.px(a, 24));
 
-        root.addView(U.bold(a, "我的", 24, a.getColor(R.color.text)));
+        root.addView(U.bold(a, "我的", 24, Theme.c(a, R.color.text)));
         root.addView(U.spacer(a, 16));
 
         root.addView(statsCard());
@@ -52,7 +52,7 @@ public class MineView {
         root.addView(U.spacer(a, 20));
 
         TextView ver = U.tv(a, "English Study · 原生版 v4.5\n"
-                + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, a.getColor(R.color.text_dim2));
+                + "完全离线 · 无网络请求 · 数据全部保存在本机", 11, Theme.c(a, R.color.text_dim2));
         ver.setGravity(Gravity.CENTER);
         ver.setLineSpacing(U.dp(a, 4), 1f);
         root.addView(ver);
@@ -67,8 +67,8 @@ public class MineView {
         long dayStart = dayStart();
 
         LinearLayout top = U.row(a);
-        top.addView(U.bold(a, "学习统计", 15, a.getColor(R.color.text)), U.weight(1));
-        top.addView(U.pill(a, "共 " + Vocab.size() + " 词", a.getColor(R.color.primary)));
+        top.addView(U.bold(a, "学习统计", 15, Theme.c(a, R.color.text)), U.weight(1));
+        top.addView(U.pill(a, "共 " + Vocab.size() + " 词", Theme.c(a, R.color.primary)));
         card.addView(top);
         card.addView(U.spacer(a, 14));
 
@@ -88,10 +88,10 @@ public class MineView {
     /** 两张图：未来 30 天到期量 + 稳定度分布。 */
     private View chartCard() {
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "学习曲线", 15, a.getColor(R.color.text)));
+        card.addView(U.bold(a, "学习曲线", 15, Theme.c(a, R.color.text)));
         card.addView(U.spacer(a, 4));
         card.addView(U.tv(a, "未来 30 天每天到期的词数", 11,
-                a.getColor(R.color.text_dim2)));
+                Theme.c(a, R.color.text_dim2)));
         card.addView(U.spacer(a, 8));
 
         long now = System.currentTimeMillis();
@@ -116,7 +116,7 @@ public class MineView {
 
         card.addView(U.spacer(a, 12));
         card.addView(U.tv(a, "稳定度分布（越往右记得越牢）", 11,
-                a.getColor(R.color.text_dim2)));
+                Theme.c(a, R.color.text_dim2)));
         card.addView(U.spacer(a, 8));
 
         // 把稳定度分 10 档，统计每档多少词
@@ -158,10 +158,10 @@ public class MineView {
     private View stat(String label, String value, int colorRes) {
         LinearLayout col = U.col(a);
         col.setGravity(Gravity.CENTER);
-        TextView v = U.bold(a, value, 20, a.getColor(colorRes));
+        TextView v = U.bold(a, value, 20, Theme.c(a, colorRes));
         v.setGravity(Gravity.CENTER);
         col.addView(v);
-        TextView l = U.tv(a, label, 11, a.getColor(R.color.text_dim2));
+        TextView l = U.tv(a, label, 11, Theme.c(a, R.color.text_dim2));
         l.setGravity(Gravity.CENTER);
         l.setPadding(0, U.px(a, 3), 0, 0);
         col.addView(l);
@@ -170,12 +170,16 @@ public class MineView {
 
     private View settingsCard() {
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "设置", 15, a.getColor(R.color.text)));
+        card.addView(U.bold(a, "设置", 15, Theme.c(a, R.color.text)));
         card.addView(U.spacer(a, 6));
         card.addView(switchRow("每日目标", Store.getInt("goal", 30) + " 词", v -> pickGoal()));
         card.addView(divider());
         card.addView(switchRow("朗读语速", String.format("%.2fx", Store.getInt("rate", 92) / 100f),
                 v -> pickRate()));
+        card.addView(divider());
+        card.addView(switchRow("外观主题", Theme.name(Theme.current()), v -> pickTheme()));
+        card.addView(divider());
+        card.addView(switchRow("液态玻璃", Glass.levelName(), v -> pickGlass()));
         card.addView(divider());
         card.addView(switchRow("朗读音色", voiceLabel(), v -> pickVoice()));
         card.addView(divider());
@@ -203,7 +207,7 @@ public class MineView {
 
     private View dataCard() {
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "数据", 15, a.getColor(R.color.text)));
+        card.addView(U.bold(a, "数据", 15, Theme.c(a, R.color.text)));
         card.addView(U.spacer(a, 6));
 
         card.addView(kvRow("内置词典", Dict.ready() ? Dict.size() + " 词" : "加载中…"));
@@ -220,24 +224,24 @@ public class MineView {
         LinearLayout exp = U.row(a);
         exp.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
         exp.setOnClickListener(v -> exportCsv());
-        exp.addView(U.tv(a, "导出 CSV（Excel 可开）", 14, a.getColor(R.color.primary)),
+        exp.addView(U.tv(a, "导出 CSV（Excel 可开）", 14, Theme.c(a, R.color.primary)),
                 U.weight(1));
-        exp.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+        exp.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
         card.addView(exp);
         card.addView(divider());
         LinearLayout expJ = U.row(a);
         expJ.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
         expJ.setOnClickListener(v -> exportJson());
-        expJ.addView(U.tv(a, "导出 JSON（含完整调度状态）", 14, a.getColor(R.color.primary)),
+        expJ.addView(U.tv(a, "导出 JSON（含完整调度状态）", 14, Theme.c(a, R.color.primary)),
                 U.weight(1));
-        expJ.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+        expJ.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
         card.addView(expJ);
 
         card.addView(divider());
         LinearLayout reset = U.row(a);
         reset.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
         reset.setOnClickListener(v -> confirmReset());
-        reset.addView(U.tv(a, "清空全部学习数据", 14, a.getColor(R.color.danger)), U.weight(1));
+        reset.addView(U.tv(a, "清空全部学习数据", 14, Theme.c(a, R.color.danger)), U.weight(1));
         card.addView(reset);
         return card;
     }
@@ -245,8 +249,8 @@ public class MineView {
     private View kvRow(String label, String value) {
         LinearLayout row = U.row(a);
         row.setPadding(0, U.px(a, 12), 0, U.px(a, 12));
-        row.addView(U.tv(a, label, 14, a.getColor(R.color.text)), U.weight(1));
-        row.addView(U.tv(a, value, 12, a.getColor(R.color.text_dim2)));
+        row.addView(U.tv(a, label, 14, Theme.c(a, R.color.text)), U.weight(1));
+        row.addView(U.tv(a, value, 12, Theme.c(a, R.color.text_dim2)));
         return row;
     }
 
@@ -254,14 +258,14 @@ public class MineView {
         LinearLayout row = U.row(a);
         row.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
         row.setOnClickListener(l);
-        row.addView(U.tv(a, label, 14, a.getColor(R.color.text)), U.weight(1));
-        row.addView(U.tv(a, value, 13, a.getColor(R.color.text_dim)));
-        row.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+        row.addView(U.tv(a, label, 14, Theme.c(a, R.color.text)), U.weight(1));
+        row.addView(U.tv(a, value, 13, Theme.c(a, R.color.text_dim)));
+        row.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
         return row;
     }
 
     private View divider() {
-        return U.divider(a, a.getColor(R.color.line));
+        return U.divider(a, Theme.c(a, R.color.line));
     }
 
     private void pickGoal() {
@@ -282,6 +286,27 @@ public class MineView {
                     Store.putInt("rate", vals[i]);
                     Tts.setRate(vals[i] / 100f);
                     ((MainActivity) a).refresh();
+                }).show();
+    }
+
+    /** 主题切换：选完立刻重建 Activity（颜色表是静态的，重建后才全局生效）。 */
+    private void pickTheme() {
+        String[] names = Theme.names();
+        new AlertDialog.Builder(a)
+                .setTitle("外观主题")
+                .setItems(names, (d, i) -> {
+                    Theme.set(i);
+                    a.recreate();
+                }).show();
+    }
+
+    private void pickGlass() {
+        String[] items = {"关闭（最省电）", "轻", "标准", "强"};
+        new AlertDialog.Builder(a)
+                .setTitle("液态玻璃强度")
+                .setItems(items, (d, i) -> {
+                    Glass.setLevel(i);
+                    a.recreate();
                 }).show();
     }
 

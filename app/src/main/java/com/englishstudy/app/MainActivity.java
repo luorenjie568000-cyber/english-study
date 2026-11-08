@@ -16,6 +16,7 @@ import com.englishstudy.app.data.Sentences;
 import com.englishstudy.app.data.Translate;
 import com.englishstudy.app.data.Vocab;
 import com.englishstudy.app.ui.ChatView;
+import com.englishstudy.app.ui.Glass;
 import com.englishstudy.app.ui.HomeView;
 import com.englishstudy.app.ui.ReadView;
 import com.englishstudy.app.ui.SpeakView;
@@ -44,15 +45,24 @@ public class MainActivity extends Activity {
         super.onCreate(b);
         Books.load(this);
 
+        // 底层：深色 + 彩色光晕（玻璃要有东西可透才看得出质感）
+        FrameLayout shell = new FrameLayout(this);
+        Glass.Backdrop backdrop = new Glass.Backdrop(this);
+        backdrop.setAccents(getColor(R.color.primary), getColor(R.color.purple));
+        shell.addView(backdrop, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
         LinearLayout root = U.col(this);
-        root.setBackgroundColor(getColor(R.color.bg));
+        root.setBackgroundColor(0x00000000);
+        shell.addView(root, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
         bar = U.row(this);
-        bar.setBackgroundColor(getColor(R.color.bg2));
+        Glass.applyBar(bar, this);
         bar.setPadding(0, U.px(this, 6), 0, U.px(this, 6));
         root.addView(bar, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 56)));
@@ -71,7 +81,7 @@ public class MainActivity extends Activity {
             labels[i] = t;
         }
 
-        setContentView(root);
+        setContentView(shell);
         select(0);
 
         // 首次启动：定目标 → 选词书 → 立刻开始第一组
@@ -101,7 +111,14 @@ public class MainActivity extends Activity {
         com.englishstudy.app.ui.Tts.stop();
         current = idx;
         for (int i = 0; i < labels.length; i++) {
-            labels[i].setTextColor(getColor(i == idx ? R.color.primary : R.color.text_dim2));
+            boolean on = i == idx;
+            labels[i].setTextColor(getColor(on ? R.color.primary : R.color.text_dim2));
+            // 选中态用玻璃药丸，未选中透明
+            if (on && Glass.level() != Glass.OFF) {
+                labels[i].setBackground(Glass.pill(this, getColor(R.color.primary)));
+            } else {
+                labels[i].setBackground(null);
+            }
         }
         content.removeAllViews();
         View v = build(idx);

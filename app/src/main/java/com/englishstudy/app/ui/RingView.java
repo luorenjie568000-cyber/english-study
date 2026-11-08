@@ -8,6 +8,8 @@ import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.view.View;
 
+import com.englishstudy.app.R;
+
 /** 圆形进度环：中央大字 + 副标题。 */
 public class RingView extends View {
 
@@ -28,19 +30,19 @@ public class RingView extends View {
         super(c, a);
         bg.setStyle(Paint.Style.STROKE);
         bg.setStrokeWidth(dp(9));
-        bg.setColor(0xFF25303F);
+        bg.setColor(Theme.c(getContext(), R.color.line));
         bg.setStrokeCap(Paint.Cap.ROUND);
 
         fg.setStyle(Paint.Style.STROKE);
         fg.setStrokeWidth(dp(9));
-        fg.setColor(0xFF4F7CFF);
+        fg.setColor(Theme.c(getContext(), R.color.primary));
         fg.setStrokeCap(Paint.Cap.ROUND);
 
-        txt.setColor(0xFFE8EEF7);
+        txt.setColor(Theme.c(getContext(), R.color.text));
         txt.setTextAlign(Paint.Align.CENTER);
         txt.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
 
-        sub.setColor(0xFF8A9AB0);
+        sub.setColor(Theme.c(getContext(), R.color.text_dim));
         sub.setTextAlign(Paint.Align.CENTER);
     }
 

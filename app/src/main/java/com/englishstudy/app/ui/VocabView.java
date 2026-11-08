@@ -39,20 +39,20 @@ public class VocabView {
         root.setPadding(p, p, p, 0);
 
         LinearLayout head = U.row(a);
-        head.addView(U.bold(a, "词汇", 24, a.getColor(R.color.text)), U.weight(1));
+        head.addView(U.bold(a, "词汇", 24, Theme.c(a, R.color.text)), U.weight(1));
         String pillName = Store.get("book.unit", "");
         if (pillName.isEmpty()) pillName = currentBookName();
-        LinearLayout book = U.pill(a, pillName, a.getColor(R.color.primary));
+        LinearLayout book = U.pill(a, pillName, Theme.c(a, R.color.primary));
         book.setOnClickListener(v -> pickBook());
         head.addView(book);
         root.addView(head);
 
         EditText search = new EditText(a);
         search.setHint("搜索单词或中文释义");
-        search.setHintTextColor(a.getColor(R.color.text_dim2));
-        search.setTextColor(a.getColor(R.color.text));
+        search.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        search.setTextColor(Theme.c(a, R.color.text));
         search.setTextSize(14);
-        search.setBackgroundResource(R.drawable.bg_tile);
+        search.setBackground(U.tileBg(a));
         search.setPadding(U.px(a, 14), U.px(a, 10), U.px(a, 14), U.px(a, 10));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -91,7 +91,7 @@ public class VocabView {
             List<Dict.Entry> hits = Dict.search(query, 60);
             if (hits.isEmpty()) {
                 listBox.addView(U.tv(a, "没有找到「" + query + "」", 13,
-                        a.getColor(R.color.text_dim)));
+                        Theme.c(a, R.color.text_dim)));
                 return;
             }
             for (Dict.Entry e : hits) listBox.addView(dictRow(e));
@@ -109,7 +109,7 @@ public class VocabView {
             section.setPadding(0, U.px(a, 8), 0, U.px(a, 8));
             section.addView(U.bold(a, names[i], 14, a.getColor(colors[i])), U.weight(1));
             section.addView(U.tv(a, String.valueOf(group.size()), 12,
-                    a.getColor(R.color.text_dim2)));
+                    Theme.c(a, R.color.text_dim2)));
             listBox.addView(section);
             for (Card c : group) {
                 Dict.Entry e = Dict.get(c.w);
@@ -121,27 +121,27 @@ public class VocabView {
             listBox.addView(U.spacer(a, 30));
             LinearLayout tip = U.card(a);
             tip.setGravity(Gravity.CENTER_HORIZONTAL);
-            tip.addView(U.tv(a, "还没有生词", 15, a.getColor(R.color.text_dim)));
+            tip.addView(U.tv(a, "还没有生词", 15, Theme.c(a, R.color.text_dim)));
             tip.addView(U.spacer(a, 6));
             tip.addView(U.tv(a, "去「学习」开始，或在上面搜索任意单词", 12,
-                    a.getColor(R.color.text_dim2)));
+                    Theme.c(a, R.color.text_dim2)));
             listBox.addView(tip);
         }
     }
 
     private View wordRow(String word, String def, String tag, int colorRes) {
         LinearLayout row = U.col(a);
-        row.setBackgroundResource(R.drawable.bg_tile);
+        row.setBackground(U.tileBg(a));
         int p = U.px(a, 14);
         row.setPadding(p, p, p, p);
 
         LinearLayout top = U.row(a);
-        top.addView(U.bold(a, word, 16, a.getColor(R.color.text)), U.weight(1));
-        top.addView(U.pill(a, tag, a.getColor(colorRes)));
+        top.addView(U.bold(a, word, 16, Theme.c(a, R.color.text)), U.weight(1));
+        top.addView(U.pill(a, tag, Theme.c(a, colorRes)));
         row.addView(top);
 
         if (def != null && !def.isEmpty()) {
-            TextView d = U.tv(a, def, 12, a.getColor(R.color.text_dim2));
+            TextView d = U.tv(a, def, 12, Theme.c(a, R.color.text_dim2));
             d.setMaxLines(2);
             d.setPadding(0, U.px(a, 4), 0, 0);
             row.addView(d);
@@ -156,20 +156,20 @@ public class VocabView {
 
     private View dictRow(Dict.Entry e) {
         LinearLayout row = U.col(a);
-        row.setBackgroundResource(R.drawable.bg_tile);
+        row.setBackground(U.tileBg(a));
         int p = U.px(a, 14);
         row.setPadding(p, p, p, p);
 
         LinearLayout top = U.row(a);
-        top.addView(U.bold(a, e.word, 16, a.getColor(R.color.text)), U.weight(1));
+        top.addView(U.bold(a, e.word, 16, Theme.c(a, R.color.text)), U.weight(1));
         String ipa = e.displayIpa();
         if (!ipa.isEmpty()) {
-            top.addView(U.tv(a, "/" + ipa + "/", 12, a.getColor(R.color.text_dim2)));
+            top.addView(U.tv(a, "/" + ipa + "/", 12, Theme.c(a, R.color.text_dim2)));
         }
         row.addView(top);
 
         if (!e.def.isEmpty()) {
-            TextView d = U.tv(a, e.def, 12, a.getColor(R.color.text_dim));
+            TextView d = U.tv(a, e.def, 12, Theme.c(a, R.color.text_dim));
             d.setMaxLines(2);
             d.setPadding(0, U.px(a, 4), 0, 0);
             row.addView(d);

@@ -45,14 +45,14 @@ final class LocalModelPanel {
         int pad = U.px(a, 18);
         box.setPadding(pad, pad, pad, pad);
         box.addView(U.tv(a, "端侧小模型，装在手机里跑，不联网、不花钱。", 12,
-                a.getColor(R.color.text_dim2)));
+                Theme.c(a, R.color.text_dim2)));
         box.addView(U.spacer(a, 10));
-        box.addView(U.tv(a, p.title, 14, a.getColor(R.color.text)));
-        box.addView(U.tv(a, state, 12, a.getColor(R.color.text_dim)));
+        box.addView(U.tv(a, p.title, 14, Theme.c(a, R.color.text)));
+        box.addView(U.tv(a, state, 12, Theme.c(a, R.color.text_dim)));
         if (ready && LocalLlm.loaded()) {
             box.addView(U.spacer(a, 6));
             box.addView(U.tv(a, "已加载到内存 · " + LocalLlm.lastStats(), 11,
-                    a.getColor(R.color.accent)));
+                    Theme.c(a, R.color.accent)));
         }
 
         AlertDialog.Builder b = new AlertDialog.Builder(a)

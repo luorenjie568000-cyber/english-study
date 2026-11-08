@@ -63,10 +63,10 @@ public class SpeakView {
 
     private void render() {
         root.removeAllViews();
-        root.addView(U.bold(a, "口语", 24, a.getColor(R.color.text)));
+        root.addView(U.bold(a, "口语", 24, Theme.c(a, R.color.text)));
         root.addView(U.spacer(a, 4));
         root.addView(U.tv(a, "本地发音 + 本地识别，念完立刻打分", 12,
-                a.getColor(R.color.text_dim2)));
+                Theme.c(a, R.color.text_dim2)));
         root.addView(U.spacer(a, 14));
 
         LinearLayout tabs = U.row(a);
@@ -90,7 +90,7 @@ public class SpeakView {
     private View tabBtn(String text, boolean active, Runnable onClick) {
         TextView t = U.bold(a, text, 14,
                 a.getColor(active ? R.color.white : R.color.text_dim));
-        t.setBackgroundResource(active ? R.drawable.bg_primary : R.drawable.bg_tile);
+        t.setBackground(active ? U.primaryBg(a) : U.tileBg(a));
         t.setGravity(Gravity.CENTER);
         t.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
         t.setOnClickListener(v -> onClick.run());
@@ -101,18 +101,18 @@ public class SpeakView {
 
     private void shadowPanel() {
         LinearLayout pick = U.card(a);
-        pick.addView(U.bold(a, "选一句练", 13, a.getColor(R.color.text_dim)));
+        pick.addView(U.bold(a, "选一句练", 13, Theme.c(a, R.color.text_dim)));
         for (String[] set : Scenes.SHADOW) {
             pick.addView(U.spacer(a, 8));
             LinearLayout head = U.row(a);
-            TextView lv = U.tv(a, set[0], 10, a.getColor(R.color.primary));
+            TextView lv = U.tv(a, set[0], 10, Theme.c(a, R.color.primary));
             lv.setPadding(U.px(a, 7), U.px(a, 2), U.px(a, 7), U.px(a, 2));
             lv.setBackgroundResource(R.drawable.bg_pill_soft);
             head.addView(lv);
             pick.addView(head);
             for (int i = 1; i < set.length; i++) {
                 final String s = set[i];
-                TextView t = U.tv(a, s, 13, a.getColor(R.color.text));
+                TextView t = U.tv(a, s, 13, Theme.c(a, R.color.text));
                 t.setPadding(U.px(a, 2), U.px(a, 8), U.px(a, 2), U.px(a, 8));
                 t.setOnClickListener(v -> {
                     target = s;
@@ -127,22 +127,22 @@ public class SpeakView {
         root.addView(U.spacer(a, 12));
 
         LinearLayout box = U.card(a);
-        box.addView(U.bold(a, "练习句", 13, a.getColor(R.color.text_dim)));
+        box.addView(U.bold(a, "练习句", 13, Theme.c(a, R.color.text_dim)));
         box.addView(U.spacer(a, 8));
-        TextView tgt = U.tv(a, target, 17, a.getColor(R.color.text));
+        TextView tgt = U.tv(a, target, 17, Theme.c(a, R.color.text));
         tgt.setLineSpacing(U.dp(a, 5), 1f);
         box.addView(tgt);
         targetTv = tgt;
 
         EditText custom = new EditText(a);
         custom.setHint("也可以粘贴任意一句英文…");
-        custom.setHintTextColor(a.getColor(R.color.text_dim2));
-        custom.setTextColor(a.getColor(R.color.text));
+        custom.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        custom.setTextColor(Theme.c(a, R.color.text));
         custom.setTextSize(13);
         custom.setBackground(null);
         custom.setMinLines(1);
         box.addView(custom);
-        TextView use = U.tv(a, "用这句 →", 12, a.getColor(R.color.primary));
+        TextView use = U.tv(a, "用这句 →", 12, Theme.c(a, R.color.primary));
         use.setPadding(0, U.px(a, 4), 0, U.px(a, 4));
         use.setOnClickListener(v -> {
             String s = custom.getText().toString().trim();
@@ -155,11 +155,11 @@ public class SpeakView {
 
         box.addView(U.spacer(a, 10));
         LinearLayout btns = U.row(a);
-        TextView normal = U.ghostButton(a, "🔊 正常", a.getColor(R.color.text));
+        TextView normal = U.ghostButton(a, "🔊 正常", Theme.c(a, R.color.text));
         normal.setOnClickListener(v -> Tts.say(a, target, 1.0f));
         btns.addView(normal, U.weight(1));
         btns.addView(U.hspacer(a, 8));
-        TextView slow = U.ghostButton(a, "🐢 慢速", a.getColor(R.color.text));
+        TextView slow = U.ghostButton(a, "🐢 慢速", Theme.c(a, R.color.text));
         slow.setOnClickListener(v -> Tts.say(a, target, 0.7f));
         btns.addView(slow, U.weight(1));
         box.addView(btns);
@@ -168,7 +168,7 @@ public class SpeakView {
         TextView mic = U.primaryButton(a, "🎤 点一下，然后念");
         box.addView(mic);
 
-        TextView status = U.tv(a, "", 12, a.getColor(R.color.text_dim));
+        TextView status = U.tv(a, "", 12, Theme.c(a, R.color.text_dim));
         status.setGravity(Gravity.CENTER);
         status.setPadding(0, U.px(a, 8), 0, 0);
         box.addView(status);
@@ -224,11 +224,11 @@ public class SpeakView {
 
         root.addView(U.spacer(a, 12));
         LinearLayout tip = U.card(a);
-        tip.addView(U.bold(a, "怎么用", 13, a.getColor(R.color.text_dim)));
+        tip.addView(U.bold(a, "怎么用", 13, Theme.c(a, R.color.text_dim)));
         tip.addView(U.spacer(a, 6));
         TextView how = U.tv(a, "先点 🔊 听一遍，再点 🎤 念。念完自动打分，念错的词会标红。"
                 + "建议先慢速跟两遍，再正常速度念一次。识别是纯本地的，断网也能用。",
-                12, a.getColor(R.color.text_dim2));
+                12, Theme.c(a, R.color.text_dim2));
         how.setLineSpacing(U.dp(a, 4), 1f);
         tip.addView(how);
         root.addView(tip);
@@ -252,15 +252,15 @@ public class SpeakView {
                 a.getColor(score >= 90 ? R.color.ok : score >= 55 ? R.color.warn : R.color.danger)));
         info.addView(U.spacer(a, 4));
         info.addView(U.tv(a, "词命中 " + hit(tgt, heard) + " · 字符相似 "
-                + charSim(tgt, heard) + "%", 11, a.getColor(R.color.text_dim2)));
+                + charSim(tgt, heard) + "%", 11, Theme.c(a, R.color.text_dim2)));
         row.addView(info, U.weight(1));
         box.addView(row);
 
         box.addView(U.spacer(a, 10));
-        box.addView(U.tv(a, "目标句（错的词标红）", 11, a.getColor(R.color.text_dim2)));
+        box.addView(U.tv(a, "目标句（错的词标红）", 11, Theme.c(a, R.color.text_dim2)));
         TextView marked = new TextView(a);
         marked.setTextSize(15);
-        marked.setTextColor(a.getColor(R.color.text));
+        marked.setTextColor(Theme.c(a, R.color.text));
         marked.setLineSpacing(U.dp(a, 5), 1f);
         marked.setText(markMissed(tgt, heard));
         box.addView(marked);
@@ -281,7 +281,7 @@ public class SpeakView {
             while (j < tgt.length() && (Character.isLetter(tgt.charAt(j)) || tgt.charAt(j) == '\'')) j++;
             String w = tgt.substring(i, j).toLowerCase(Locale.US);
             if (!h.contains(" " + w + " ") && !h.contains(w)) {
-                sp.setSpan(new BackgroundColorSpan(a.getColor(R.color.danger_soft)),
+                sp.setSpan(new BackgroundColorSpan(Theme.c(a, R.color.danger_soft)),
                         i, j, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 sp.setSpan(new StyleSpan(Typeface.BOLD), i, j, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
@@ -317,25 +317,25 @@ public class SpeakView {
     private void scenePanel() {
         if (scene == null) {
             LinearLayout card = U.card(a);
-            card.addView(U.bold(a, "选一个场景", 13, a.getColor(R.color.text_dim)));
+            card.addView(U.bold(a, "选一个场景", 13, Theme.c(a, R.color.text_dim)));
             card.addView(U.spacer(a, 6));
             for (Scenes.Scene s : Scenes.all()) {
                 LinearLayout row = U.row(a);
                 row.setPadding(0, U.px(a, 12), 0, U.px(a, 12));
                 LinearLayout col = U.col(a);
                 LinearLayout head = U.row(a);
-                head.addView(U.tv(a, s.title, 15, a.getColor(R.color.text)));
+                head.addView(U.tv(a, s.title, 15, Theme.c(a, R.color.text)));
                 head.addView(U.hspacer(a, 8));
-                TextView lv = U.tv(a, s.level, 10, a.getColor(R.color.accent));
+                TextView lv = U.tv(a, s.level, 10, Theme.c(a, R.color.accent));
                 lv.setPadding(U.px(a, 6), U.px(a, 2), U.px(a, 6), U.px(a, 2));
                 lv.setBackgroundResource(R.drawable.bg_pill_soft);
                 head.addView(lv);
                 col.addView(head);
-                TextView g = U.tv(a, s.goal, 12, a.getColor(R.color.text_dim2));
+                TextView g = U.tv(a, s.goal, 12, Theme.c(a, R.color.text_dim2));
                 g.setPadding(0, U.px(a, 3), 0, 0);
                 col.addView(g);
                 row.addView(col, U.weight(1));
-                row.addView(U.tv(a, " ›", 16, a.getColor(R.color.text_dim2)));
+                row.addView(U.tv(a, " ›", 16, Theme.c(a, R.color.text_dim2)));
                 final Scenes.Scene ss = s;
                 row.setOnClickListener(v -> {
                     scene = ss;
@@ -344,7 +344,7 @@ public class SpeakView {
                     render();
                 });
                 card.addView(row);
-                if (!s.id.equals("smalltalk")) card.addView(U.divider(a, a.getColor(R.color.line)));
+                if (!s.id.equals("smalltalk")) card.addView(U.divider(a, Theme.c(a, R.color.line)));
             }
             root.addView(card);
             return;
@@ -352,26 +352,26 @@ public class SpeakView {
 
         // 场景内
         LinearLayout head = U.row(a);
-        TextView back = U.tv(a, "‹ 全部场景", 13, a.getColor(R.color.primary));
+        TextView back = U.tv(a, "‹ 全部场景", 13, Theme.c(a, R.color.primary));
         back.setOnClickListener(v -> {
             scene = null;
             render();
         });
         head.addView(back, U.weight(1));
         head.addView(U.tv(a, scene.level + " · " + (lineIdx + 1) + "/" + scene.lines.size(),
-                11, a.getColor(R.color.text_dim2)));
+                11, Theme.c(a, R.color.text_dim2)));
         root.addView(head);
         root.addView(U.spacer(a, 10));
 
         // 已完成的对白
         for (String[] e : sceneLog) {
             LinearLayout card = U.card(a);
-            card.addView(U.tv(a, "你", 11, a.getColor(R.color.text_dim2)));
-            TextView you = U.tv(a, e[0], 14, a.getColor(R.color.text));
+            card.addView(U.tv(a, "你", 11, Theme.c(a, R.color.text_dim2)));
+            TextView you = U.tv(a, e[0], 14, Theme.c(a, R.color.text));
             you.setLineSpacing(U.dp(a, 4), 1f);
             card.addView(you);
             card.addView(U.spacer(a, 4));
-            card.addView(U.tv(a, "命中 " + e[1], 11, a.getColor(R.color.text_dim2)));
+            card.addView(U.tv(a, "命中 " + e[1], 11, Theme.c(a, R.color.text_dim2)));
             root.addView(card);
             root.addView(U.spacer(a, 8));
         }
@@ -380,13 +380,13 @@ public class SpeakView {
             final Scenes.Line ln = scene.lines.get(lineIdx);
 
             LinearLayout npc = U.card(a);
-            npc.addView(U.bold(a, "对方", 11, a.getColor(R.color.text_dim2)));
+            npc.addView(U.bold(a, "对方", 11, Theme.c(a, R.color.text_dim2)));
             npc.addView(U.spacer(a, 6));
-            TextView line = U.tv(a, ln.npc, 16, a.getColor(R.color.text));
+            TextView line = U.tv(a, ln.npc, 16, Theme.c(a, R.color.text));
             line.setLineSpacing(U.dp(a, 5), 1f);
             npc.addView(line);
             npc.addView(U.spacer(a, 8));
-            TextView play = U.tv(a, "🔊 听一遍", 12, a.getColor(R.color.primary));
+            TextView play = U.tv(a, "🔊 听一遍", 12, Theme.c(a, R.color.primary));
             play.setPadding(0, U.px(a, 4), 0, U.px(a, 4));
             play.setOnClickListener(v -> Tts.say(a, ln.npc, 0.9f));
             npc.addView(play);
@@ -394,13 +394,13 @@ public class SpeakView {
 
             root.addView(U.spacer(a, 10));
             LinearLayout say = U.card(a);
-            say.addView(U.bold(a, "该你说", 11, a.getColor(R.color.text_dim2)));
+            say.addView(U.bold(a, "该你说", 11, Theme.c(a, R.color.text_dim2)));
             say.addView(U.spacer(a, 6));
-            TextView hint = U.tv(a, "💡 " + ln.hint, 13, a.getColor(R.color.warn));
+            TextView hint = U.tv(a, "💡 " + ln.hint, 13, Theme.c(a, R.color.warn));
             hint.setLineSpacing(U.dp(a, 4), 1f);
             say.addView(hint);
 
-            TextView status = U.tv(a, "", 12, a.getColor(R.color.text_dim));
+            TextView status = U.tv(a, "", 12, Theme.c(a, R.color.text_dim));
             status.setGravity(Gravity.CENTER);
             status.setPadding(0, U.px(a, 8), 0, 0);
 
@@ -409,7 +409,7 @@ public class SpeakView {
             say.addView(mic);
             say.addView(status);
 
-            TextView skip = U.tv(a, "跳过这句 ›", 12, a.getColor(R.color.text_dim2));
+            TextView skip = U.tv(a, "跳过这句 ›", 12, Theme.c(a, R.color.text_dim2));
             skip.setGravity(Gravity.CENTER);
             skip.setPadding(0, U.px(a, 10), 0, 0);
             skip.setOnClickListener(v -> {
@@ -470,9 +470,9 @@ public class SpeakView {
 
         root.addView(U.spacer(a, 12));
         LinearLayout ph = U.card(a);
-        ph.addView(U.bold(a, "本场景常用句", 13, a.getColor(R.color.text_dim)));
+        ph.addView(U.bold(a, "本场景常用句", 13, Theme.c(a, R.color.text_dim)));
         for (String p : scene.phrases) {
-            TextView t = U.tv(a, "· " + p, 13, a.getColor(R.color.text));
+            TextView t = U.tv(a, "· " + p, 13, Theme.c(a, R.color.text));
             t.setPadding(0, U.px(a, 8), 0, 0);
             t.setOnClickListener(v -> Tts.say(a, p, 0.9f));
             ph.addView(t);
@@ -482,10 +482,10 @@ public class SpeakView {
 
     private void finishScene() {
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "这一轮走完了", 15, a.getColor(R.color.ok)));
+        card.addView(U.bold(a, "这一轮走完了", 15, Theme.c(a, R.color.ok)));
         card.addView(U.spacer(a, 6));
         card.addView(U.tv(a, "回了 " + sceneLog.size() + " 句。再来一轮或者换场景。",
-                12, a.getColor(R.color.text_dim2)));
+                12, Theme.c(a, R.color.text_dim2)));
         card.addView(U.spacer(a, 10));
         TextView again = U.primaryButton(a, "再来一轮");
         again.setOnClickListener(v -> {

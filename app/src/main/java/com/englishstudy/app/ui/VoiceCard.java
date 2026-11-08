@@ -20,7 +20,7 @@ public class VoiceCard {
     /** 在"我的"页 root 里追加语音卡片。 */
     public static View build(Activity a) {
         LinearLayout card = U.card(a);
-        card.addView(U.bold(a, "离线语音", 15, a.getColor(R.color.text)));
+        card.addView(U.bold(a, "离线语音", 15, Theme.c(a, R.color.text)));
         card.addView(U.spacer(a, 6));
 
         // TTS 状态行
@@ -75,10 +75,10 @@ public class VoiceCard {
     private static View statusRow(Activity a, String label, String state, TextView out) {
         LinearLayout row = U.row(a);
         row.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
-        row.addView(U.tv(a, label, 14, a.getColor(R.color.text)), U.weight(1));
+        row.addView(U.tv(a, label, 14, Theme.c(a, R.color.text)), U.weight(1));
         out.setText(state);
         out.setTextSize(12);
-        out.setTextColor(a.getColor(R.color.text_dim2));
+        out.setTextColor(Theme.c(a, R.color.text_dim2));
         row.addView(out);
         return row;
     }
@@ -89,7 +89,7 @@ public class VoiceCard {
         row.setPadding(0, U.px(a, 13), 0, U.px(a, 13));
 
         LinearLayout col = U.col(a);
-        TextView title = U.tv(a, p.title, 14, a.getColor(R.color.text));
+        TextView title = U.tv(a, p.title, 14, Theme.c(a, R.color.text));
         col.addView(title);
         String sub;
         if (ready) {
@@ -101,7 +101,7 @@ public class VoiceCard {
                     ? "已下 " + mb(done) + " / " + mb(total) + " · 点按继续"
                     : "点按下载 · " + mb(total);
         }
-        TextView subTv = U.tv(a, sub, 12, a.getColor(R.color.text_dim2));
+        TextView subTv = U.tv(a, sub, 12, Theme.c(a, R.color.text_dim2));
         subTv.setPadding(0, U.px(a, 2), 0, 0);
         col.addView(subTv);
         row.addView(col, U.weight(1));
@@ -206,7 +206,7 @@ public class VoiceCard {
 
     private static View divider(Activity a) {
         View v = new View(a);
-        v.setBackgroundColor(a.getColor(R.color.line));
+        v.setBackgroundColor(Theme.c(a, R.color.line));
         v.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, U.px(a, 1)));
         return v;

@@ -42,18 +42,18 @@ public class TransView {
         int p = U.px(a, 16);
         root.setPadding(p, p, p, U.px(a, 24));
 
-        root.addView(U.bold(a, "翻译", 24, a.getColor(R.color.text)));
+        root.addView(U.bold(a, "翻译", 24, Theme.c(a, R.color.text)));
         root.addView(U.spacer(a, 4));
         root.addView(U.tv(a, "贴一段英文，本地整句翻译；查不到时给逐词对照",
-                12, a.getColor(R.color.text_dim2)));
+                12, Theme.c(a, R.color.text_dim2)));
         root.addView(U.spacer(a, 14));
 
         // 输入区
         LinearLayout inCard = U.card(a);
         input = new EditText(a);
         input.setHint("粘贴或输入英文");
-        input.setHintTextColor(a.getColor(R.color.text_dim2));
-        input.setTextColor(a.getColor(R.color.text));
+        input.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        input.setTextColor(Theme.c(a, R.color.text));
         input.setTextSize(15);
         input.setBackground(null);
         input.setMinLines(3);
@@ -67,11 +67,11 @@ public class TransView {
         go.setOnClickListener(v -> doTranslate());
         btns.addView(go, U.weight(1));
         btns.addView(U.hspacer(a, 8));
-        TextView paste = U.ghostButton(a, "粘贴", a.getColor(R.color.text_dim));
+        TextView paste = U.ghostButton(a, "粘贴", Theme.c(a, R.color.text_dim));
         paste.setOnClickListener(v -> doPaste());
         btns.addView(paste, U.weight(1));
         btns.addView(U.hspacer(a, 8));
-        TextView clear = U.ghostButton(a, "清空", a.getColor(R.color.text_dim));
+        TextView clear = U.ghostButton(a, "清空", Theme.c(a, R.color.text_dim));
         clear.setOnClickListener(v -> {
             input.setText("");
             resultBox.removeAllViews();
@@ -88,8 +88,8 @@ public class TransView {
         // 历史区
         root.addView(U.spacer(a, 10));
         LinearLayout hHead = U.row(a);
-        hHead.addView(U.bold(a, "翻译历史", 14, a.getColor(R.color.text_dim)), U.weight(1));
-        TextView clearH = U.tv(a, "清空", 12, a.getColor(R.color.danger));
+        hHead.addView(U.bold(a, "翻译历史", 14, Theme.c(a, R.color.text_dim)), U.weight(1));
+        TextView clearH = U.tv(a, "清空", 12, Theme.c(a, R.color.danger));
         clearH.setPadding(U.px(a, 10), U.px(a, 4), 0, U.px(a, 4));
         clearH.setOnClickListener(v -> confirmClearHistory());
         hHead.addView(clearH);
@@ -147,29 +147,29 @@ public class TransView {
         LinearLayout card = U.card(a);
         if (r.hasTranslation()) {
             LinearLayout head = U.row(a);
-            head.addView(U.bold(a, "译文", 13, a.getColor(R.color.text_dim)), U.weight(1));
+            head.addView(U.bold(a, "译文", 13, Theme.c(a, R.color.text_dim)), U.weight(1));
             head.addView(U.pill(a, r.exact ? "人工译文" : "分句匹配",
                     a.getColor(r.exact ? R.color.accent : R.color.warn)));
             card.addView(head);
             card.addView(U.spacer(a, 8));
 
-            TextView t = U.tv(a, r.translation, 17, a.getColor(R.color.text));
+            TextView t = U.tv(a, r.translation, 17, Theme.c(a, R.color.text));
             t.setLineSpacing(U.dp(a, 6), 1f);
             card.addView(t);
 
             card.addView(U.spacer(a, 10));
             LinearLayout ops = U.row(a);
-            TextView copy = U.tv(a, "复制", 12, a.getColor(R.color.primary));
+            TextView copy = U.tv(a, "复制", 12, Theme.c(a, R.color.primary));
             copy.setPadding(0, U.px(a, 4), U.px(a, 16), U.px(a, 4));
             copy.setOnClickListener(v -> copyText(r.translation));
             ops.addView(copy);
-            TextView speak = U.tv(a, "朗读原文", 12, a.getColor(R.color.primary));
+            TextView speak = U.tv(a, "朗读原文", 12, Theme.c(a, R.color.primary));
             speak.setOnClickListener(v -> Tts.say(a, r.source));
             ops.addView(speak);
             card.addView(ops);
         } else {
             card.addView(U.tv(a, "句库里没有这句的现成译文，下面是逐词对照",
-                    12, a.getColor(R.color.text_dim2)));
+                    12, Theme.c(a, R.color.text_dim2)));
         }
         resultBox.addView(card);
 
@@ -178,10 +178,10 @@ public class TransView {
             resultBox.addView(U.spacer(a, 12));
             LinearLayout wc = U.card(a);
             LinearLayout wh = U.row(a);
-            wh.addView(U.bold(a, "逐词对照", 13, a.getColor(R.color.text_dim)), U.weight(1));
+            wh.addView(U.bold(a, "逐词对照", 13, Theme.c(a, R.color.text_dim)), U.weight(1));
             int unknown = 0;
             for (Translate.Word w : r.words) if (!w.known) unknown++;
-            if (unknown > 0) wh.addView(U.pill(a, unknown + " 个生词", a.getColor(R.color.warn)));
+            if (unknown > 0) wh.addView(U.pill(a, unknown + " 个生词", Theme.c(a, R.color.warn)));
             wc.addView(wh);
             wc.addView(U.spacer(a, 8));
 
@@ -196,15 +196,15 @@ public class TransView {
 
                 if (w.known) {
                     if (!w.pos.isEmpty()) {
-                        TextView pos = U.tv(a, w.pos, 11, a.getColor(R.color.primary));
+                        TextView pos = U.tv(a, w.pos, 11, Theme.c(a, R.color.primary));
                         row.addView(pos);
                         row.addView(U.hspacer(a, 6));
                     }
-                    row.addView(U.tv(a, w.def, 13, a.getColor(R.color.text_dim)), U.weight(1));
+                    row.addView(U.tv(a, w.def, 13, Theme.c(a, R.color.text_dim)), U.weight(1));
                 } else {
-                    row.addView(U.tv(a, "词典未收录", 12, a.getColor(R.color.text_dim2)),
+                    row.addView(U.tv(a, "词典未收录", 12, Theme.c(a, R.color.text_dim2)),
                             U.weight(1));
-                    TextView add = U.tv(a, "加入生词本", 11, a.getColor(R.color.primary));
+                    TextView add = U.tv(a, "加入生词本", 11, Theme.c(a, R.color.primary));
                     add.setPadding(U.px(a, 8), 0, 0, 0);
                     add.setOnClickListener(v -> {
                         Vocab.getOrCreate(w.text);
@@ -227,7 +227,7 @@ public class TransView {
 
         List<History.Item> list = History.all();
         if (list.isEmpty()) {
-            historyBox.addView(U.tv(a, "还没有翻译记录", 12, a.getColor(R.color.text_dim2)));
+            historyBox.addView(U.tv(a, "还没有翻译记录", 12, Theme.c(a, R.color.text_dim2)));
             return;
         }
 
@@ -236,21 +236,21 @@ public class TransView {
         for (int i = 0; i < shown; i++) {
             final History.Item it = list.get(i);
             LinearLayout row = U.col(a);
-            row.setBackgroundResource(R.drawable.bg_tile);
+            row.setBackground(U.tileBg(a));
             int p = U.px(a, 12);
             row.setPadding(p, p, p, p);
 
             LinearLayout top = U.row(a);
-            TextView src = U.tv(a, it.source, 14, a.getColor(R.color.text));
+            TextView src = U.tv(a, it.source, 14, Theme.c(a, R.color.text));
             src.setMaxLines(2);
             top.addView(src, U.weight(1));
             TextView time = U.tv(a, fmt.format(new Date(it.time)), 10,
-                    a.getColor(R.color.text_dim2));
+                    Theme.c(a, R.color.text_dim2));
             top.addView(time);
             row.addView(top);
 
             if (it.target != null && !it.target.isEmpty()) {
-                TextView tgt = U.tv(a, it.target, 13, a.getColor(R.color.text_dim));
+                TextView tgt = U.tv(a, it.target, 13, Theme.c(a, R.color.text_dim));
                 tgt.setMaxLines(2);
                 tgt.setPadding(0, U.px(a, 4), 0, 0);
                 row.addView(tgt);
@@ -281,7 +281,7 @@ public class TransView {
 
         if (list.size() > shown) {
             TextView more = U.tv(a, "还有 " + (list.size() - shown) + " 条更早的记录", 11,
-                    a.getColor(R.color.text_dim2));
+                    Theme.c(a, R.color.text_dim2));
             more.setGravity(Gravity.CENTER);
             more.setPadding(0, U.px(a, 6), 0, 0);
             historyBox.addView(more);

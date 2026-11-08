@@ -36,17 +36,17 @@ public class WriteView {
         int p = U.px(a, 16);
         root.setPadding(p, p, p, U.px(a, 24));
 
-        root.addView(U.bold(a, "写作", 24, a.getColor(R.color.text)));
+        root.addView(U.bold(a, "写作", 24, Theme.c(a, R.color.text)));
         root.addView(U.spacer(a, 4));
         root.addView(U.tv(a, "写完点批改，本地检查中式表达、冠词、拼写、标点",
-                12, a.getColor(R.color.text_dim2)));
+                12, Theme.c(a, R.color.text_dim2)));
         root.addView(U.spacer(a, 14));
 
         LinearLayout inCard = U.card(a);
         input = new EditText(a);
         input.setHint("Write something here… 两三句也行");
-        input.setHintTextColor(a.getColor(R.color.text_dim2));
-        input.setTextColor(a.getColor(R.color.text));
+        input.setHintTextColor(Theme.c(a, R.color.text_dim2));
+        input.setTextColor(Theme.c(a, R.color.text));
         input.setTextSize(15);
         input.setBackground(null);
         input.setMinLines(6);
@@ -61,11 +61,11 @@ public class WriteView {
         go.setOnClickListener(v -> check());
         btns.addView(go, U.weight(1));
         btns.addView(U.hspacer(a, 8));
-        TextView sample = U.ghostButton(a, "填入范文", a.getColor(R.color.text_dim));
+        TextView sample = U.ghostButton(a, "填入范文", Theme.c(a, R.color.text_dim));
         sample.setOnClickListener(v -> input.setText(SAMPLE));
         btns.addView(sample, U.weight(1));
         btns.addView(U.hspacer(a, 8));
-        TextView clear = U.ghostButton(a, "清空", a.getColor(R.color.text_dim));
+        TextView clear = U.ghostButton(a, "清空", Theme.c(a, R.color.text_dim));
         clear.setOnClickListener(v -> {
             input.setText("");
             resultBox.removeAllViews();
@@ -74,7 +74,7 @@ public class WriteView {
         btns.addView(clear, U.weight(1));
         inCard.addView(btns);
 
-        count = U.tv(a, "0 词", 11, a.getColor(R.color.text_dim2));
+        count = U.tv(a, "0 词", 11, Theme.c(a, R.color.text_dim2));
         count.setGravity(Gravity.END);
         count.setPadding(0, U.px(a, 6), 0, 0);
         inCard.addView(count);
@@ -122,10 +122,10 @@ public class WriteView {
         info.addView(U.bold(a, r.verdict, 15, scoreColor(r.score)));
         info.addView(U.spacer(a, 6));
         info.addView(U.tv(a, r.words + " 词 · " + r.sentences + " 句 · 均 "
-                + r.avgLen + " 词/句", 12, a.getColor(R.color.text_dim2)));
+                + r.avgLen + " 词/句", 12, Theme.c(a, R.color.text_dim2)));
         info.addView(U.spacer(a, 4));
         info.addView(U.tv(a, r.issues.isEmpty() ? "没查出明显问题"
-                : "发现 " + r.issues.size() + " 处可改进", 12, a.getColor(R.color.text_dim)));
+                : "发现 " + r.issues.size() + " 处可改进", 12, Theme.c(a, R.color.text_dim)));
         row.addView(info, U.weight(1));
         scoreCard.addView(row);
         resultBox.addView(scoreCard);
@@ -134,12 +134,12 @@ public class WriteView {
         if (!r.issues.isEmpty()) {
             resultBox.addView(U.spacer(a, 12));
             LinearLayout marked = U.card(a);
-            marked.addView(U.bold(a, "标出的位置", 13, a.getColor(R.color.text_dim)));
+            marked.addView(U.bold(a, "标出的位置", 13, Theme.c(a, R.color.text_dim)));
             marked.addView(U.spacer(a, 8));
             TextView tv = new TextView(a);
             tv.setTextSize(15);
             tv.setLineSpacing(U.dp(a, 6), 1f);
-            tv.setTextColor(a.getColor(R.color.text));
+            tv.setTextColor(Theme.c(a, R.color.text));
             tv.setText(markText(text, r.issues));
             marked.addView(tv);
             resultBox.addView(marked);
@@ -149,10 +149,10 @@ public class WriteView {
         resultBox.addView(U.spacer(a, 12));
         LinearLayout list = U.card(a);
         if (r.issues.isEmpty()) {
-            list.addView(U.tv(a, "没查出明显问题，写得干净。", 14, a.getColor(R.color.text_dim)));
+            list.addView(U.tv(a, "没查出明显问题，写得干净。", 14, Theme.c(a, R.color.text_dim)));
         } else {
             list.addView(U.bold(a, "问题清单（" + r.issues.size() + "）", 13,
-                    a.getColor(R.color.text_dim)));
+                    Theme.c(a, R.color.text_dim)));
             for (WritingChecker.Issue it : r.issues) {
                 list.addView(U.spacer(a, 10));
                 list.addView(issueRow(it));
@@ -168,7 +168,7 @@ public class WriteView {
             int end = Math.max(start, Math.min(it.offset + it.length, text.length()));
             if (end <= start) continue;
             int color = it.type.equals("拼写") || it.type.equals("搭配")
-                    ? a.getColor(R.color.danger_soft) : a.getColor(R.color.warn_soft);
+                    ? Theme.c(a, R.color.danger_soft) : Theme.c(a, R.color.warn_soft);
             sp.setSpan(new BackgroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             sp.setSpan(new StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
@@ -186,19 +186,19 @@ public class WriteView {
         badge.setBackgroundResource(R.drawable.bg_pill_soft);
         head.addView(badge);
 
-        TextView snippet = U.tv(a, it.snippet, 13, a.getColor(R.color.text));
+        TextView snippet = U.tv(a, it.snippet, 13, Theme.c(a, R.color.text));
         snippet.setTypeface(Typeface.MONOSPACE);
         snippet.setPadding(U.px(a, 8), 0, 0, 0);
         head.addView(snippet);
         box.addView(head);
 
-        TextView msg = U.tv(a, it.message, 12, a.getColor(R.color.text_dim));
+        TextView msg = U.tv(a, it.message, 12, Theme.c(a, R.color.text_dim));
         msg.setPadding(0, U.px(a, 4), 0, 0);
         msg.setLineSpacing(U.dp(a, 3), 1f);
         box.addView(msg);
 
         if (!it.hint.isEmpty()) {
-            TextView hint = U.tv(a, "→ " + it.hint, 12, a.getColor(R.color.primary));
+            TextView hint = U.tv(a, "→ " + it.hint, 12, Theme.c(a, R.color.primary));
             hint.setPadding(0, U.px(a, 3), 0, 0);
             box.addView(hint);
         }
