@@ -26,9 +26,25 @@ public final class Articles {
         public String text = "";
         public long createdAt;
 
+        /** 词数：英文按空格切，中日韩按字符数（中文一个字就是一个词）。 */
         public int words() {
             String t = text == null ? "" : text.trim();
-            return t.isEmpty() ? 0 : t.split("\\s+").length;
+            if (t.isEmpty()) return 0;
+            int cjk = 0, latinWords = 0;
+            StringBuilder cur = new StringBuilder();
+            for (char c : t.toCharArray()) {
+                if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3040 && c <= 0x30FF)
+                        || (c >= 0xAC00 && c <= 0xD7AF)) {
+                    cjk++;
+                    if (cur.length() > 0) { latinWords++; cur.setLength(0); }
+                } else if (Character.isLetter(c) || c == '\'') {
+                    cur.append(c);
+                } else if (Character.isWhitespace(c)) {
+                    if (cur.length() > 0) { latinWords++; cur.setLength(0); }
+                }
+            }
+            if (cur.length() > 0) latinWords++;
+            return cjk + latinWords;
         }
 
         public String[] sentences() {
@@ -36,9 +52,12 @@ public final class Articles {
             return text.split("(?<=[.!?])\\s+");
         }
 
-        /** 预估阅读时长（分钟，按 150 词/分）。 */
+        /** 预估阅读时长（分钟）：英文 150 词/分，中文 300 字/分。 */
         public int minutes() {
-            return Math.max(1, words() / 150);
+            String t = text == null ? "" : text;
+            boolean cjk = t.length() > 0 && t.charAt(0) > 0x3000
+                    && (t.codePoints().anyMatch(cp -> cp >= 0x4E00 && cp <= 0x9FFF));
+            return Math.max(1, words() / (cjk ? 300 : 150));
         }
     }
 
