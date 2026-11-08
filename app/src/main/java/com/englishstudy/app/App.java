@@ -220,5 +220,9 @@ public class App extends Application {
         }, "loader").start();
         if (st) new Thread(this::voiceSelfTest, "voice-diag").start();
         if (st) new Thread(() -> com.englishstudy.app.voice.LocalLlm.selfTest(this), "llm-diag").start();
+        // 用户选了「本地优先」就把模型预热起来，第一次提问不用等加载
+        if (com.englishstudy.app.data.Store.getBool("ai.local", false)) {
+            com.englishstudy.app.voice.LocalLlm.warmup(this);
+        }
     }
 }

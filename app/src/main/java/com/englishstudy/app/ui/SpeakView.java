@@ -49,6 +49,7 @@ public class SpeakView {
     private IpaView ipa;     // 同样懒加载
     private AudioPanel audio;
     private VideoPanel videoPanel;
+    private MediaPanel mediaPanel;
 
     public SpeakView(Activity a) {
         this.a = a;
@@ -115,6 +116,12 @@ public class SpeakView {
         render();
     }
 
+    /** 由 MainActivity 转发媒体文件（自动识别流程）。 */
+    public void onMediaFile(android.net.Uri uri, boolean video) {
+        if (mediaPanel == null) mediaPanel = new MediaPanel(a);
+        mediaPanel.onFile(uri, video);
+    }
+
     /** 由 MainActivity 转发视频文件选择结果。 */
     public void onVideoFile(android.net.Uri uri) {
         if (videoPanel == null) videoPanel = new VideoPanel(a);
@@ -154,10 +161,20 @@ public class SpeakView {
                 @Override public void onOpenVideo() {
                     openVideo();
                 }
+
+                @Override public void onOpenMedia() {
+                    openMedia();
+                }
             });
         }
         root.addView(ipa.build(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+    }
+
+    /** 媒体自动识别：独立页（历史记录要完整列表，弹窗装不下）。 */
+    private void openMedia() {
+        a.startActivity(new android.content.Intent(a,
+                com.englishstudy.app.ui.MediaActivity.class));
     }
 
     /** 视频跟读：弹窗打开（同样避免挤 tab）。 */

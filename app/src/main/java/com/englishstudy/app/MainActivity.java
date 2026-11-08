@@ -198,7 +198,11 @@ public class MainActivity extends Activity {
                 // 直接找 MineView 的实例不可行，改为通过标签索引判断
             }
         }
-        if (requestCode == 0xA2) {
+        if (requestCode == 0xB1) {
+            if (currentSpeak != null) currentSpeak.onMediaFile(uri, true);
+        } else if (requestCode == 0xB2) {
+            if (currentSpeak != null) currentSpeak.onMediaFile(uri, false);
+        } else if (requestCode == 0xA2) {
             if (currentSpeak != null) currentSpeak.onVideoFile(uri);
         } else if (requestCode == 0xA1) {
             if (currentSpeak != null) currentSpeak.onAudioFile(uri);

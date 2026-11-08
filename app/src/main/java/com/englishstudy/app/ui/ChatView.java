@@ -260,11 +260,12 @@ public class ChatView {
         // 本地模型开关（不联网也能用）
         LinearLayout local = U.row(a);
         local.setPadding(0, U.px(a, 10), 0, U.px(a, 10));
-        String lm = com.englishstudy.app.voice.LocalLlm.doneBytes(a,
-                com.englishstudy.app.voice.LocalLlm.pack()) > 0
-                ? "已下载 " + (com.englishstudy.app.voice.LocalLlm.doneBytes(a,
-                        com.englishstudy.app.voice.LocalLlm.pack()) / 1048576) + "MB"
-                : "未下载";
+        com.englishstudy.app.voice.LocalLlm.Pack actPack =
+                com.englishstudy.app.voice.LocalLlm.active(a);
+        String lm = actPack == null ? "未下载"
+                : actPack.title.split("（")[0] + " · "
+                + (com.englishstudy.app.voice.LocalLlm.doneBytes(a, actPack) / 1048576)
+                + "MB";
         local.addView(U.tv(a, "本地模型（端侧）", 14, Theme.c(a, R.color.text)), U.weight(1));
         local.addView(U.tv(a, Agent.localMode() ? "已启用 · " + lm : lm + " ›", 12,
                 Theme.c(a, R.color.primary)));

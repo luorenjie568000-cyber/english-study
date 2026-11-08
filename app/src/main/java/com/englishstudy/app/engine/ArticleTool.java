@@ -210,6 +210,7 @@ public final class ArticleTool {
 
         String reply;
         try {
+            // 本地优先：4B 端侧模型能稳定吐 JSON；本地没装/失败才走云端
             reply = Agent.askRaw(prompt, 2000);
         } catch (Throwable e) {
             r.error = "模型调用失败：" + e.getMessage();

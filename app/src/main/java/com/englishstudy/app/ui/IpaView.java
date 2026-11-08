@@ -19,6 +19,8 @@ public class IpaView {
         void onOpenAudio();
 
         default void onOpenVideo() { }
+
+        default void onOpenMedia() { }
     }
 
     private final Activity a;
@@ -71,6 +73,16 @@ public class IpaView {
         });
         btns.addView(goV, U.weight(1));
         entry.addView(btns);
+
+        entry.addView(U.spacer(a, 8));
+        TextView media = U.primaryButton(a, "🎬 自动识别整片 → 生成字幕");
+        media.setOnClickListener(v -> {
+            if (onAudio != null) onAudio.onOpenMedia();
+        });
+        entry.addView(media);
+        entry.addView(U.spacer(a, 4));
+        entry.addView(U.tv(a, "导入视频/音频，自动切句识别，句子可改可播可译，结果存本地",
+                11, Theme.c(a, R.color.text_dim2)));
         root.addView(entry);
 
         sv.addView(root);

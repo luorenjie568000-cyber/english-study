@@ -128,16 +128,34 @@ public final class Agent {
      * 三种模式都支持：本地模型 → 云端 → 离线规则（离线规则直接返回空，让调用方兜底）。
      */
     public static String askRaw(String prompt, int maxTokens) throws Exception {
-        if (localMode()) {
+        return askRaw(prompt, maxTokens, false);
+    }
+
+    /**
+     * @param forceCloud true = 忽略「本地模型」设置，直连云端。
+     *
+     * 为什么需要：翻译/审校要输出严格 JSON，0.5B 端侧模型做不了（实测只吐碎片）。
+     * 用户把日常对话设成「本地」是为了省流量，但这类任务必须走云端。
+     */
+    public static String askRaw(String prompt, int maxTokens, boolean forceCloud)
+            throws Exception {
+        // 本地优先：先试本地 JSON 推理，产出不像 JSON 才轮到云端。
+        // 用户明确要求「往后都不走云」，所以这里即便有云端配置也先本地。
+        if (localMode() && !forceCloud) {
             android.content.Context c = com.englishstudy.app.App.ctx();
-            if (c != null && !com.englishstudy.app.voice.LocalLlm.loaded()) {
-                com.englishstudy.app.voice.LocalLlm.Pack pk =
-                        com.englishstudy.app.voice.LocalLlm.active(c);
-                if (pk != null) com.englishstudy.app.voice.LocalLlm.load(c, pk);
+            // 注意：这里的 ensure() 会尝试加载模型，可能耗几百毫秒；
+            // 调用方都在后台线程，安全。
+            if (c != null && com.englishstudy.app.voice.LocalLlm.ensure(c)) {
+                // 用低温 + 少量重试，直接把模型输出交回调用方解析。
+                // 之前这里要求「必须是合法 JSON 才返回」，导致纯文本任务
+                // （如整段译文）被判定失败后静默丢弃 —— 现在不管形状，
+                // 只要模型吐了字就返回，让上层自己决定怎么用。
+                String out = com.englishstudy.app.voice.LocalLlm.askJson(
+                        "你是一个精确的语言助手，只输出结果本身，不要任何解释文字。",
+                        prompt, maxTokens);
+                if (out != null && !out.trim().isEmpty()) return out;
             }
-            String out = com.englishstudy.app.voice.LocalLlm.ask(
-                    "你是英语老师，只输出 JSON。", prompt, maxTokens);
-            return out == null ? "" : out;
+            if (!configured()) return "";
         }
         if (configured()) {
             JSONObject body = new JSONObject();
