@@ -209,21 +209,22 @@ public class FloatingBar extends LinearLayout {
             topCol = 0xF2FFFFFF;
             botCol = 0xD8EDE9E2;
         } else {
-            topCol = 0xFF39445A;
-            botCol = 0xFF232C3B;
+            topCol = 0xFF2B3446;
+            botCol = 0xFF171E2B;
         }
+        // 透明度是「像玻璃」的第一要素：太重就变成实心板
         if (level == Glass.STRONG) {
-            topCol = Glass.withAlpha(topCol, 0xD0);
-            botCol = Glass.withAlpha(botCol, 0xC8);
+            topCol = Glass.withAlpha(topCol, 0x6E);
+            botCol = Glass.withAlpha(botCol, 0x62);
         } else if (level == Glass.LIGHT) {
-            topCol = Glass.withAlpha(topCol, 0xF6);
-            botCol = Glass.withAlpha(botCol, 0xF0);
+            topCol = Glass.withAlpha(topCol, 0xC8);
+            botCol = Glass.withAlpha(botCol, 0xBE);
         } else if (level == Glass.OFF) {
             topCol = Glass.withAlpha(topCol, 0xFF);
             botCol = Glass.withAlpha(botCol, 0xFF);
         } else {
-            topCol = Glass.withAlpha(topCol, 0xE6);
-            botCol = Glass.withAlpha(botCol, 0xDC);
+            topCol = Glass.withAlpha(topCol, 0x96);
+            botCol = Glass.withAlpha(botCol, 0x88);
         }
 
         fillPaint.setShader(new LinearGradient(0, 0, 0, h, topCol, botCol,

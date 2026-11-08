@@ -402,3 +402,64 @@ The book was written by a young teacher.
 - **多语言词典完成后重渲染**：`recreate()` 会走完整生命周期、可能循环，
   改成 `rerender()` 只重建句子容器
 - **中文下划线**：`TextPaint` 没有 `setUnderlineColor()`，要用字段 `ds.underlineColor`
+
+### v5.4（2026-11-08 下午）：真正的悬浮 + 全文翻译 + 语言二审
+
+## 1. 底栏「贴图感」的真因找到了
+
+之前底栏是加在**垂直 LinearLayout** 里的 —— 它是布局的一部分，高度会把内容顶上去，
+底部永远是它自己的区域。所以无论材质做得多像玻璃，**结构上它就不是浮层**。
+
+修法：把底栏从 `root`（LinearLayout）移到 `shell`（FrameLayout），用
+`gravity=BOTTOM` + margin 定位，`elevation` 抬到 8dp。内容改为占满整屏，
+可以真正滚到胶囊背后。同时给内容底部补 padding，避免最后一行被盖住。
+
+**验证**：阅读页滚动时，卡片文字会透到胶囊背后并被模糊 —— 这才是 Liquid Glass。
+（Apple HIG 原话："content to scroll and peek through from beneath these elements"）
+
+同时把透明度从 α0xE6/0xDC 提到 α0x96/0x88（强档 0x6E/0x62），
+底色压暗到 `#2B3446 → #171E2B` —— 太重就变实心板。
+
+## 2. 全文翻译（`engine/ArticleTool.java`）
+
+两级策略：
+1. **本地句库优先**：逐句查 71,642 对英中句对，命中直接用（零成本、零延迟）
+2. **模型补全**：句库没有的交给大模型（本地 Qwen 或云端）
+
+界面：文章页「全文翻译」按钮 → 逐句对照列表（英文 + 中文），显示「句库 N 句 / 共 M 句」。
+
+## 3. 语言合理性二审（用户核心要求）
+
+导入的文章可能是机器翻的、抄的、或自己写的，表达未必地道。
+所以除了翻译，还让模型判断「这段英文是不是人话」。
+
+点击「模型二审」→ 一次调用返回 JSON：
+```json
+{"lines":[{"en":"原句","zh":"译文","issue":"问题说明或空"}],
+ "summary":"整篇语言质量总评"}
+```
+
+真机实测（故意写的病句）：
+```
+语言审校 · 5 处问题
+整篇文章存在多处时态、拼写和用词错误，语言不地道，需要修改。
+
+Yesterday I go to a coffee shop.
+⚠ 时态错误，应为过去时：Yesterday I went to a coffee shop.
+I very like the quite place.
+⚠ "very like"不地道，应为"like ... very much"；"quite" 拼写...
+Although it was crowded, but I found a seat.
+⚠ 英语中 although 和 but 不能连用，应去掉 but
+The waiter was very frienly.
+⚠ 拼写错误："frienly" 应为 "friendly"
+I am boring in the afternoon.
+⚠ 用词错误："boring" 表示"令人无聊的"，应改为 "bored"
+```
+
+干净的文章返回「0 处问题 · 全文语法正确、表达清晰自然」。
+
+## 实现要点
+- `Agent.askRaw(prompt, maxTokens)`：不带工具、不写历史的原始问答，
+  三种模式（本地/云端/离线）都支持
+- `ArticleTool.splitSentences()`：按 `.!?` 切，短碎片（"Mr."）并回上一句
+- 模型返回的 JSON 用前缀 80% 匹配对位（模型常改标点）

@@ -123,6 +123,40 @@ public final class Agent {
 
     // ---------------------------------------------------------------- 发送
 
+    /**
+     * 原始问答：不带工具、不写历史，专给「全文翻译 / 语言二审」这类内部任务用。
+     * 三种模式都支持：本地模型 → 云端 → 离线规则（离线规则直接返回空，让调用方兜底）。
+     */
+    public static String askRaw(String prompt, int maxTokens) throws Exception {
+        if (localMode()) {
+            android.content.Context c = com.englishstudy.app.App.ctx();
+            if (c != null && !com.englishstudy.app.voice.LocalLlm.loaded()) {
+                com.englishstudy.app.voice.LocalLlm.Pack pk =
+                        com.englishstudy.app.voice.LocalLlm.active(c);
+                if (pk != null) com.englishstudy.app.voice.LocalLlm.load(c, pk);
+            }
+            String out = com.englishstudy.app.voice.LocalLlm.ask(
+                    "你是英语老师，只输出 JSON。", prompt, maxTokens);
+            return out == null ? "" : out;
+        }
+        if (configured()) {
+            JSONObject body = new JSONObject();
+            body.put("model", modelName());
+            body.put("temperature", 0.3);
+            JSONArray msgs = new JSONArray();
+            msgs.put(new JSONObject().put("role", "system")
+                    .put("content", "你是英语老师，只输出 JSON，不要任何解释文字。"));
+            msgs.put(new JSONObject().put("role", "user").put("content", prompt));
+            body.put("messages", msgs);
+            JSONObject resp = post(body.toString());
+            JSONArray ch = resp.optJSONArray("choices");
+            if (ch == null || ch.length() == 0) return "";
+            JSONObject msg = ch.getJSONObject(0).optJSONObject("message");
+            return msg == null ? "" : msg.optString("content", "");
+        }
+        return "";
+    }
+
     /** 同步发送（调用方负责放到后台线程）。返回最终文本。 */
     public static String chat(String userText) throws Exception {
         if (localMode()) return chatLocal(userText);

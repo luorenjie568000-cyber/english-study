@@ -59,19 +59,25 @@ public class MainActivity extends Activity {
 
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT));
 
-        // 悬浮胶囊导航（浮在内容之上，不是贴底通栏）
+        // ══ 真正的悬浮：底栏加在 shell（FrameLayout）里，不占布局空间
+        //
+        // 之前加在垂直 LinearLayout 里 → 它是布局的一部分，高度会把内容顶上去，
+        // 底部永远是它自己的区域，所以看起来像"贴图"。
+        // 现在内容占满整屏，底栏用 gravity=bottom 浮在上面，内容能滚到它背后。
         floating = new FloatingBar(this, TABS);
         floating.setOnTab(this::select);
         floating.bindBackdrop(content);
-        LinearLayout.LayoutParams fbp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, U.px(this, 50));
+        FrameLayout.LayoutParams fbp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, U.px(this, 52));
+        fbp.gravity = Gravity.BOTTOM;
         fbp.leftMargin = U.px(this, 22);
         fbp.rightMargin = U.px(this, 22);
-        fbp.bottomMargin = U.px(this, 22);
-        root.addView(floating, fbp);
-        floating.setElevation(U.px(this, 2));
+        fbp.bottomMargin = U.px(this, 24);
+        shell.addView(floating, fbp);
+        floating.setElevation(U.px(this, 8));
 
         setContentView(shell);
         select(0);
@@ -107,8 +113,11 @@ public class MainActivity extends Activity {
         View v = build(idx);
         content.addView(v, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        // 给内容底部补足胶囊高度 + 边距，否则最后一行会被盖住
+        v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(),
+                v.getPaddingBottom() + U.px(this, 52 + 24 + 8));
         // 内容变了 → 重新抓一次模糊快照（延迟到布局完成后）
-        if (floating != null) floating.post(floating::refreshBackdrop);
+        if (floating != null) floating.postDelayed(floating::refreshBackdrop, 80);
     }
 
     private View build(int idx) {

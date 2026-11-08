@@ -99,6 +99,10 @@ public class ReaderActivity extends Activity {
             TextView all = U.ghostButton(this, "🔊 通读一遍", Theme.c(this, R.color.primary));
             all.setOnClickListener(v -> Tts.say(this, ps.text));
             tools.addView(all, U.weight(1));
+            tools.addView(U.hspacer(this, 8));
+            TextView tr = U.ghostButton(this, "全文翻译", Theme.c(this, R.color.accent));
+            tr.setOnClickListener(v -> showFullTranslation());
+            tools.addView(tr, U.weight(1));
             root.addView(tools);
             root.addView(U.spacer(this, 6));
             TextView tip = U.tv(this, "长按句子看语法成分（主谓宾 / 时态 / 语态）", 11,
@@ -189,6 +193,160 @@ public class ReaderActivity extends Activity {
             line.addView(tv, U.weight(1));
             sentenceBox.addView(line);
         }
+    }
+
+    /** 全文翻译：先本地句库，缺的交给模型补，并做语言合理性二审。 */
+    private void showFullTranslation() {
+        if (ps == null) return;
+
+        android.app.ProgressDialog pd = new android.app.ProgressDialog(this);
+        pd.setMessage("逐句翻译中…");
+        pd.setCancelable(false);
+        pd.show();
+
+        new Thread(() -> {
+            com.englishstudy.app.engine.ArticleTool.Result r =
+                    com.englishstudy.app.engine.ArticleTool.translate(ps.text);
+            runOnUiThread(() -> {
+                pd.dismiss();
+                if (!r.ok()) {
+                    toast(r.error);
+                    return;
+                }
+                showTranslationDialog(r);
+            });
+        }, "translate").start();
+    }
+
+    private void showTranslationDialog(com.englishstudy.app.engine.ArticleTool.Result r) {
+        LinearLayout box = U.col(this);
+        int p = U.px(this, 16);
+        box.setPadding(p, p, p, p);
+
+        // 统计行
+        LinearLayout stat = U.row(this);
+        stat.addView(U.pill(this, "句库 " + r.libraryHits + " 句",
+                Theme.c(this, R.color.accent)));
+        stat.addView(U.hspacer(this, 6));
+        stat.addView(U.pill(this, "共 " + r.lines.size() + " 句",
+                Theme.c(this, R.color.text_dim)));
+        box.addView(stat);
+        box.addView(U.spacer(this, 12));
+
+        // 逐句对照
+        for (com.englishstudy.app.engine.ArticleTool.Line line : r.lines) {
+            LinearLayout row = U.col(this);
+            row.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
+
+            TextView en = U.tv(this, line.en, 13, Theme.c(this, R.color.text_dim));
+            en.setLineSpacing(U.dp(this, 3), 1f);
+            row.addView(en);
+
+            String zh = (line.zh == null || line.zh.isEmpty()) ? "（未译出）" : line.zh;
+            TextView zhTv = U.tv(this, zh, 14,
+                    Theme.c(this, line.zh == null || line.zh.isEmpty()
+                            ? R.color.text_dim2 : R.color.text));
+            zhTv.setLineSpacing(U.dp(this, 4), 1f);
+            zhTv.setPadding(0, U.px(this, 4), 0, 0);
+            row.addView(zhTv);
+
+            if (line.issue != null && !line.issue.isEmpty()) {
+                TextView is = U.tv(this, "⚠ " + line.issue, 12,
+                        Theme.c(this, R.color.warn));
+                is.setLineSpacing(U.dp(this, 3), 1f);
+                is.setPadding(0, U.px(this, 4), 0, 0);
+                row.addView(is);
+            }
+            box.addView(row);
+            box.addView(U.divider(this, Theme.c(this, R.color.line)));
+        }
+
+        android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
+                .setTitle("全文翻译")
+                .setView(new android.widget.ScrollView(this) {{
+                    addView(box);
+                }})
+                .setNegativeButton("关闭", null)
+                .setNeutralButton("模型二审", null)
+                .create();
+
+        dlg.setOnShowListener(x -> dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL)
+                .setOnClickListener(v -> {
+                    dlg.dismiss();
+                    runModelReview(r);
+                }));
+        dlg.show();
+    }
+
+    /** 调大模型：补全缺的译文 + 检查语言是否地道。 */
+    private void runModelReview(com.englishstudy.app.engine.ArticleTool.Result r) {
+        android.app.ProgressDialog pd = new android.app.ProgressDialog(this);
+        pd.setMessage("模型审校中…（本地模型较慢）");
+        pd.setCancelable(false);
+        pd.show();
+
+        new Thread(() -> {
+            com.englishstudy.app.engine.ArticleTool.refineWithModel(r, null);
+            runOnUiThread(() -> {
+                pd.dismiss();
+                if (r.error != null && !r.error.isEmpty()) {
+                    toast(r.error + "\n（可在「我的 → 学伴设置」配置云端接口）");
+                    return;
+                }
+                showReviewDialog(r);
+            });
+        }, "review").start();
+    }
+
+    private void showReviewDialog(com.englishstudy.app.engine.ArticleTool.Result r) {
+        LinearLayout box = U.col(this);
+        int p = U.px(this, 16);
+        box.setPadding(p, p, p, p);
+
+        if (r.summary != null && !r.summary.isEmpty()) {
+            LinearLayout card = U.card(this);
+            card.addView(U.bold(this, "语言质量总评", 12, Theme.c(this, R.color.text_dim)));
+            card.addView(U.spacer(this, 6));
+            TextView s = U.tv(this, r.summary, 14, Theme.c(this, R.color.text));
+            s.setLineSpacing(U.dp(this, 4), 1f);
+            card.addView(s);
+            box.addView(card);
+            box.addView(U.spacer(this, 12));
+        }
+
+        int issues = 0;
+        for (com.englishstudy.app.engine.ArticleTool.Line l : r.lines) {
+            if (l.issue == null || l.issue.isEmpty()) continue;
+            issues++;
+            LinearLayout row = U.col(this);
+            row.setPadding(0, U.px(this, 8), 0, U.px(this, 8));
+            TextView en = U.tv(this, l.en, 13, Theme.c(this, R.color.text_dim));
+            en.setLineSpacing(U.dp(this, 3), 1f);
+            row.addView(en);
+            TextView is = U.tv(this, "⚠ " + l.issue, 13, Theme.c(this, R.color.warn));
+            is.setLineSpacing(U.dp(this, 4), 1f);
+            is.setPadding(0, U.px(this, 4), 0, 0);
+            row.addView(is);
+            box.addView(row);
+            box.addView(U.divider(this, Theme.c(this, R.color.line)));
+        }
+
+        if (issues == 0) {
+            box.addView(U.tv(this, "没发现表达问题，这篇文章读起来是地道的。",
+                    13, Theme.c(this, R.color.accent)));
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("语言审校 · " + issues + " 处问题")
+                .setView(new android.widget.ScrollView(this) {{
+                    addView(box);
+                }})
+                .setPositiveButton("好", null)
+                .show();
+    }
+
+    private void toast(String m) {
+        android.widget.Toast.makeText(this, m, android.widget.Toast.LENGTH_LONG).show();
     }
 
     /** 多语言词条弹窗：词头 + 读音 + 英文释义 + 存生词本。 */
