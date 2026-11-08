@@ -243,33 +243,23 @@ public final class Glass {
         try {
             if (region == null) region = new android.graphics.Rect(0, 0, sw, sh);
 
-            // 1/4 分辨率抓整页，再从里面 cut 出对应区域（比直接 draw(region) 稳）
+            // 直接把 region 那一块画进小图 —— 不要「整页 draw 再裁」，
+            // 因为 region 是屏幕绝对坐标，和 source 的本地坐标不是同一个系。
             float scale = 0.25f;
-            int fw = Math.max(1, (int) (sw * scale));
-            int fh = Math.max(1, (int) (sh * scale));
-            android.graphics.Bitmap full = android.graphics.Bitmap.createBitmap(
-                    fw, fh, android.graphics.Bitmap.Config.ARGB_8888);
-            android.graphics.Canvas cv = new android.graphics.Canvas(full);
-            cv.scale(scale, scale);
-            source.draw(cv);
-
-            int x = Math.max(0, Math.round(region.left * scale));
-            int y = Math.max(0, Math.round(region.top * scale));
             int w = Math.max(1, Math.round(region.width() * scale));
             int h = Math.max(1, Math.round(region.height() * scale));
-            if (x + w > fw) w = fw - x;
-            if (y + h > fh) h = fh - y;
-            if (w <= 0 || h <= 0) {
-                full.recycle();
-                return null;
-            }
+            android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
+                    w, h, android.graphics.Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas cv = new android.graphics.Canvas(bmp);
+            cv.scale(scale, scale);
+            // region 是屏幕绝对坐标 → 转成 source 的本地坐标再 translate
+            int[] loc = new int[2];
+            source.getLocationOnScreen(loc);
+            cv.translate(loc[0] - region.left, loc[1] - region.top);
+            source.draw(cv);
 
-            android.graphics.Bitmap cut = android.graphics.Bitmap.createBitmap(
-                    full, x, y, Math.max(1, w), Math.max(1, h));
-            full.recycle();
-
-            boxBlur(cut, Math.max(2, Math.round(radiusPx * scale)));
-            return cut;
+            boxBlur(bmp, Math.max(2, Math.round(radiusPx * scale)));
+            return bmp;
         } catch (Throwable e) {
             return null;
         }

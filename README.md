@@ -463,3 +463,31 @@ I am boring in the afternoon.
   三种模式（本地/云端/离线）都支持
 - `ArticleTool.splitSentences()`：按 `.!?` 切，短碎片（"Mr."）并回上一句
 - 模型返回的 JSON 用前缀 80% 匹配对位（模型常改标点）
+
+### v5.6（2026-11-08 下午）：底栏玻璃再修（浅色主题 + 坐标 bug）
+
+用户反馈「底部栏是不透明白色贴图，挡住了页面底部的文字」。
+查下来是两个叠加问题：
+
+1. **当前主题是「纸墨」（浅色）**，底栏用了 `0xF2FFFFFF`（95% 不透明纯白）
+   → 就是一块白板。改成米灰渐变 `#F0EDE6 → #DDD8CE` + α0x6E/0x60
+2. **模糊快照的坐标系搞错了**：`region` 是屏幕绝对坐标，
+   但 `source.draw()` 需要本地坐标 → 抓出来的图是空白的，
+   所以玻璃背后什么都没有，只剩半透明色块
+
+修法：`cv.translate(loc[0] - region.left, loc[1] - region.top)`，
+先把 region 从屏幕坐标转成 source 本地坐标再绘制。
+
+3. **底部文字被遮挡**：之前给根 View 加 padding 对 ScrollView 无效
+   （padding 会被算进滚动区，滚到底时最后一行仍在胶囊后面）。
+   改成判断类型：ScrollView 就给直接子 View 加底部 padding（滚动区变长）。
+
+#### 关键教训
+**Android 上没有「读取背后像素」的 API。**
+`View.setRenderEffect` 模糊的是自己画的内容；`Window.setBackgroundBlurRadius`
+要求 floating 窗口。所以玻璃只能靠「快照 + CPU 模糊」近似 —— 这意味着：
+- 快照的**坐标系**必须精确（屏幕坐标 vs 本地坐标）
+- 快照的**抓取时机**必须对（布局完成后）
+- 内容滚动后必须**重抓**（否则看到的是旧画面）
+
+做不到 iOS 那种逐帧实时的真折射，这是平台限制，不是实现问题。

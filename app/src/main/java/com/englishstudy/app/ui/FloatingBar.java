@@ -98,7 +98,10 @@ public class FloatingBar extends LinearLayout {
 
     /** 告诉它「背后的内容 View 是谁」，用来抓模糊快照。 */
     public void bindBackdrop(View source) {
-        this.backdropSource = source;
+        // 优先用它的父容器（覆盖整屏，包含背景层），
+        // 否则 content 底部有 padding，胶囊所在区域是空白，抓不到东西
+        android.view.ViewParent p = source.getParent();
+        this.backdropSource = (p instanceof View) ? (View) p : source;
         refreshBackdrop();
     }
 
@@ -107,28 +110,36 @@ public class FloatingBar extends LinearLayout {
      * 快照只在「内容变了」时需要更新，滚动中复用旧图（人眼分辨不出）。
      */
     public void refreshBackdrop() {
-        if (backdropSource == null || getWidth() == 0) return;
-        post(() -> {
-            if (backdropSource == null || getWidth() == 0) return;
-            // 计算自己在 source 坐标系里的矩形（source 是 content FrameLayout）
+        if (backdropSource == null) return;
+        // 布局可能还没完成 → 延迟到下一帧再抓
+        postDelayed(this::captureNow, 60);
+    }
+
+    private void captureNow() {
+        if (backdropSource == null || getWidth() == 0 || getHeight() == 0) return;
+        {
+            // 抓「胶囊正下方」那一条内容 —— 这才是透过玻璃应该看到的东西
             int[] myLoc = new int[2];
             int[] srcLoc = new int[2];
             getLocationOnScreen(myLoc);
             backdropSource.getLocationOnScreen(srcLoc);
+            int relLeft = myLoc[0] - srcLoc[0];
+            int relTop = myLoc[1] - srcLoc[1];
             android.graphics.Rect region = new android.graphics.Rect(
-                    myLoc[0] - srcLoc[0], myLoc[1] - srcLoc[1],
-                    myLoc[0] - srcLoc[0] + getWidth(),
-                    myLoc[1] - srcLoc[1] + getHeight());
+                    relLeft, relTop, relLeft + getWidth(), relTop + getHeight());
 
             Bitmap old = blurred;
             Bitmap bmp = Glass.blurBehind(backdropSource, region,
-                    getWidth(), getHeight(), U.px(ctx, 16));
+                    getWidth(), getHeight(), U.px(ctx, 26));
+            diag("capture w=" + getWidth() + " h=" + getHeight()
+                    + " region=" + region + " bmp=" + (bmp == null ? "null"
+                    : bmp.getWidth() + "x" + bmp.getHeight()));
             if (bmp != null) {
                 blurred = bmp;
                 if (old != null && !old.isRecycled()) old.recycle();
                 invalidate();
             }
-        });
+        }
     }
 
     // ---------------------------------------------------------------- 选中
@@ -206,25 +217,27 @@ public class FloatingBar extends LinearLayout {
         //    关键：即使背后是空的，也要靠自身渐变读出"这是一块玻璃"
         int topCol, botCol;
         if (light) {
-            topCol = 0xF2FFFFFF;
-            botCol = 0xD8EDE9E2;
+            // 浅色主题不能是纯白 —— 那是"不透明白板"，就是贴图感
+            topCol = 0xFFF0EDE6;
+            botCol = 0xFFDDD8CE;
         } else {
             topCol = 0xFF2B3446;
             botCol = 0xFF171E2B;
         }
         // 透明度是「像玻璃」的第一要素：太重就变成实心板
         if (level == Glass.STRONG) {
-            topCol = Glass.withAlpha(topCol, 0x6E);
-            botCol = Glass.withAlpha(botCol, 0x62);
+            topCol = Glass.withAlpha(topCol, 0x62);
+            botCol = Glass.withAlpha(botCol, 0x52);
         } else if (level == Glass.LIGHT) {
-            topCol = Glass.withAlpha(topCol, 0xC8);
-            botCol = Glass.withAlpha(botCol, 0xBE);
+            topCol = Glass.withAlpha(topCol, 0xB4);
+            botCol = Glass.withAlpha(botCol, 0xAA);
         } else if (level == Glass.OFF) {
             topCol = Glass.withAlpha(topCol, 0xFF);
             botCol = Glass.withAlpha(botCol, 0xFF);
         } else {
-            topCol = Glass.withAlpha(topCol, 0x96);
-            botCol = Glass.withAlpha(botCol, 0x88);
+            // 标准档：浅色 α0x6E / 深色 α0x88 —— 再实就成贴图了
+            topCol = Glass.withAlpha(topCol, light ? 0x6E : 0x88);
+            botCol = Glass.withAlpha(botCol, light ? 0x60 : 0x78);
         }
 
         fillPaint.setShader(new LinearGradient(0, 0, 0, h, topCol, botCol,
@@ -245,7 +258,9 @@ public class FloatingBar extends LinearLayout {
         int save2 = canvas.save();
         canvas.clipPath(clip);
         sheenPaint.setShader(new LinearGradient(0, 0, 0, h * 0.5f,
-                Glass.withAlpha(0xFFFFFFFF, level == Glass.OFF ? 0x14 : 0x30),
+                Glass.withAlpha(0xFFFFFFFF,
+                        light ? (level == Glass.OFF ? 0x10 : 0x22)
+                              : (level == Glass.OFF ? 0x14 : 0x30)),
                 Color.TRANSPARENT, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h * 0.5f, sheenPaint);
 
@@ -333,6 +348,16 @@ public class FloatingBar extends LinearLayout {
         }
 
         super.onDraw(canvas);
+    }
+
+    private void diag(String line) {
+        try {
+            java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(
+                    new java.io.File(ctx.getFilesDir(), "bar-diag.txt"), true));
+            w.println(System.currentTimeMillis() % 1000000 + " " + line);
+            w.close();
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override

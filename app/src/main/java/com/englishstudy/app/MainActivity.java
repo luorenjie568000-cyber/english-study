@@ -113,11 +113,27 @@ public class MainActivity extends Activity {
         View v = build(idx);
         content.addView(v, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        // 给内容底部补足胶囊高度 + 边距，否则最后一行会被盖住
-        v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(),
-                v.getPaddingBottom() + U.px(this, 52 + 24 + 8));
+        // 内容底部留出胶囊的空间：
+        // 直接给 v 加 padding 对 ScrollView 无效（它会把 padding 算进滚动区，
+        // 滚到底时最后一行仍在胶囊后面）。所以分两种处理。
+        int reserve = U.px(this, 52 + 24 + 10);
+        if (v instanceof android.widget.ScrollView) {
+            // ScrollView：给它的直接子 View 加底部 padding，滚动区随之变长
+            android.view.ViewGroup sv = (android.view.ViewGroup) v;
+            if (sv.getChildCount() > 0) {
+                android.view.View inner = sv.getChildAt(0);
+                inner.setPadding(inner.getPaddingLeft(), inner.getPaddingTop(),
+                        inner.getPaddingRight(), inner.getPaddingBottom() + reserve);
+            }
+        } else {
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(),
+                    v.getPaddingBottom() + reserve);
+        }
         // 内容变了 → 重新抓一次模糊快照（延迟到布局完成后）
-        if (floating != null) floating.postDelayed(floating::refreshBackdrop, 80);
+        if (floating != null) {
+            floating.postDelayed(floating::refreshBackdrop, 120);
+            floating.postDelayed(floating::refreshBackdrop, 400);
+        }
     }
 
     private View build(int idx) {
