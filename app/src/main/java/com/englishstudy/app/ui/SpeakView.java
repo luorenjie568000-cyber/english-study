@@ -48,6 +48,7 @@ public class SpeakView {
     private ChatView chat;   // 懒加载：字段初始化时 a 还没赋值
     private IpaView ipa;     // 同样懒加载
     private AudioPanel audio;
+    private VideoPanel videoPanel;
 
     public SpeakView(Activity a) {
         this.a = a;
@@ -114,6 +115,12 @@ public class SpeakView {
         render();
     }
 
+    /** 由 MainActivity 转发视频文件选择结果。 */
+    public void onVideoFile(android.net.Uri uri) {
+        if (videoPanel == null) videoPanel = new VideoPanel(a);
+        videoPanel.onVideoFile(uri);
+    }
+
     private void saveTab() {
         com.englishstudy.app.data.Store.putInt("speak.tab", tab);
     }
@@ -139,10 +146,34 @@ public class SpeakView {
     private void ipaPanel() {
         if (ipa == null) {
             ipa = new IpaView(a);
-            ipa.setOnAudio(this::openAudio);
+            ipa.setOnAudio(new IpaView.OnAudioEntry() {
+                @Override public void onOpenAudio() {
+                    openAudio();
+                }
+
+                @Override public void onOpenVideo() {
+                    openVideo();
+                }
+            });
         }
         root.addView(ipa.build(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+    }
+
+    /** 视频跟读：弹窗打开（同样避免挤 tab）。 */
+    private void openVideo() {
+        if (videoPanel == null) videoPanel = new VideoPanel(a);
+        LinearLayout box = U.col(a);
+        box.setPadding(U.px(a, 4), U.px(a, 4), U.px(a, 4), U.px(a, 4));
+        box.addView(videoPanel.build(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (int) (a.getResources().getDisplayMetrics().heightPixels * 0.72)));
+        new android.app.AlertDialog.Builder(a)
+                .setTitle("视频跟读")
+                .setView(box)
+                .setPositiveButton("关闭", (d, w) -> videoPanel.release())
+                .setOnDismissListener(d -> videoPanel.release())
+                .show();
     }
 
     /** 音频跟读：从音标页底部的按钮进入（用弹窗，避免再挤一个 tab）。 */

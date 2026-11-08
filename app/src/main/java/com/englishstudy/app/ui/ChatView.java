@@ -172,7 +172,7 @@ public class ChatView {
         tv.setText(text);
         tv.setTextSize(14);
         tv.setLineSpacing(U.dp(a, 5), 1f);
-        tv.setTextColor(a.getColor(mine ? R.color.white : R.color.text));
+        tv.setTextColor(Theme.c(a, mine ? R.color.white : R.color.text));
         tv.setBackground(mine ? primaryBg(a) : bubbleBg(a));
         int ph = U.px(a, 13), pv = U.px(a, 10);
         tv.setPadding(ph, pv, ph, pv);

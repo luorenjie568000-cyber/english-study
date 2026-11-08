@@ -155,7 +155,7 @@ public final class U {
 
     /** 主按钮：主题色底 + 白字。 */
     public static TextView primaryButton(Context c, String text) {
-        TextView t = bold(c, text, 15, 0xFFFFFFFF);
+        TextView t = bold(c, text, 15, Theme.c(c, R.color.white));
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable();
         g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);

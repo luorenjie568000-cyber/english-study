@@ -45,24 +45,24 @@ public final class Theme {
     }
 
     private static final Palette[] PALETTES = {
-            // NIGHT（text_dim2 从 5F7085 提到 A8B6C8 —— 原来在深卡上只有 2.9:1，看不清）
-            new Palette(0xFF0B0F14, 0xFF111721, 0xFF161E2A, 0xFF1D2635, 0xFF25303F,
-                    0xFFEDF3FB, 0xFFA8B6C8, 0xFF8A9AB0, 0xFF6D93FF, 0xFF3EE0A6),
-            // FOREST
-            new Palette(0xFF0D1512, 0xFF131F1A, 0xFF17241F, 0xFF1D2E27, 0xFF24382E,
-                    0xFFEAF4ED, 0xFFA6C2B4, 0xFF8AA899, 0xFF4FD9A0, 0xFF8CE5BE),
-            // SUNSET
-            new Palette(0xFF160F14, 0xFF211620, 0xFF271A26, 0xFF32202F, 0xFF3D2A39,
-                    0xFFF7EEF3, 0xFFC9AEBF, 0xFFB394A8, 0xFFFF8C6E, 0xFFFFB08E),
-            // PAPER（浅色；深色文字要更深，浅底上 8D8377 只到 3.8:1）
-            new Palette(0xFFF4F1EA, 0xFFFBF9F4, 0xFFFDFBF6, 0xFFF0EBE1, 0xFFCFC6B4,
-                    0xFF1F1B16, 0xFF4E463C, 0xFF6B6257, 0xFF7A5D2E, 0xFF3B7355),
-            // MIDNIGHT（纯黑 OLED）
-            new Palette(0xFF000000, 0xFF08090B, 0xFF0E1013, 0xFF14171B, 0xFF1E2228,
-                    0xFFEDF1F7, 0xFFA3ACB9, 0xFF868F9C, 0xFF7BA3FF, 0xFF4FE3AE),
+            // NIGHT —— 类原生深色（Material 3 Dark）
+            new Palette(0xFF0E1116, 0xFF161A20, 0xFF1C2026, 0xFF242931, 0xFF2E343D,
+                    0xFFE6E8EB, 0xFFA8ADB5, 0xFF8A9099, 0xFF8AB4F8, 0xFF81C995),
+            // FOREST —— 类原生绿（Material You 衍生）
+            new Palette(0xFF0F1512, 0xFF141C18, 0xFF1A231E, 0xFF212C26, 0xFF2A3630,
+                    0xFFE6EFE8, 0xFFA8BDB0, 0xFF88998F, 0xFF7BD9A5, 0xFFA5E8C4),
+            // SUNSET —— 类原生暖橙
+            new Palette(0xFF17110E, 0xFF221A16, 0xFF2A211C, 0xFF342924, 0xFF40332C,
+                    0xFFF2E9E2, 0xFFC2B0A4, 0xFF9C8B80, 0xFFFFB59E, 0xFFFFD1B8),
+            // PAPER —— 类原生浅色（Material 3 Light：纯白卡 + 中性灰底）
+            new Palette(0xFFF6F7F9, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFF1F3F5, 0xFFDDE1E6,
+                    0xFF1A1C1E, 0xFF44474B, 0xFF73777C, 0xFF1A73E8, 0xFF1E8E5A),
+            // MIDNIGHT —— 纯黑 OLED（类原生 + 省电）
+            new Palette(0xFF000000, 0xFF0A0C0F, 0xFF101316, 0xFF171A1F, 0xFF22262C,
+                    0xFFE6E8EB, 0xFFA8ADB5, 0xFF7C828A, 0xFF8AB4F8, 0xFF81C995),
     };
 
-    private static final String[] NAMES = {"深蓝", "森林", "日落", "纸墨", "纯黑"};
+    private static final String[] NAMES = {"深色", "森林", "暖橙", "浅色", "纯黑"};
 
     public static int current() {
         return Math.max(0, Math.min(4, com.englishstudy.app.data.Store.getInt("theme", NIGHT)));
@@ -115,6 +115,9 @@ public final class Theme {
         if (id == R.color.accent || id == R.color.ok) return p.accent;
         if (id == R.color.accent_soft) return Glass.withAlpha(p.accent, 0x55);
         if (id == R.color.purple) return p.primary;
+        // R.color.white：深色主题就是白，浅色主题要变成深色（否则白底白字看不见）
+        if (id == R.color.white) return light() ? 0xFF1A1F26 : 0xFFFFFFFF;
+        if (id == R.color.black) return light() ? 0xFFFFFFFF : 0xFF000000;
         return 0xFF888888;
     }
 

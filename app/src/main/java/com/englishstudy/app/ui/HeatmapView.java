@@ -30,17 +30,17 @@ public class HeatmapView extends View {
         int base = Theme.accentColor(getContext());
         boolean light = Theme.light();
         int[] lv = new int[5];
-        lv[0] = light ? 0xFFE4E0D6 : 0xFF2A3442;
+        lv[0] = light ? 0xFFE8EAED : 0xFF2A3442;
         for (int i = 1; i <= 4; i++) {
             float f = 0.35f + i * 0.16f;      // 0.51 / 0.67 / 0.83 / 0.99
             int r = (int) (((base >> 16) & 0xFF) * f);
             int g = (int) (((base >> 8) & 0xFF) * f);
             int b = (int) ((base & 0xFF) * f);
             if (light) {
-                // 浅色主题：把颜色压暗一点，否则在白底上看不见
-                r = Math.min(255, r + 40);
-                g = Math.min(255, g + 40);
-                b = Math.min(255, b + 40);
+                // 浅色主题：向白色靠拢得到浅色阶（而不是加 40 变脏）
+                r = (int) (r + (255 - r) * 0.55f);
+                g = (int) (g + (255 - g) * 0.55f);
+                b = (int) (b + (255 - b) * 0.55f);
             }
             lv[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
         }

@@ -17,6 +17,8 @@ public class IpaView {
     /** 音频跟读入口回调（由 SpeakView 提供）。 */
     public interface OnAudioEntry {
         void onOpenAudio();
+
+        default void onOpenVideo() { }
     }
 
     private final Activity a;
@@ -56,11 +58,19 @@ public class IpaView {
         entry.addView(U.tv(a, "导入一段 mp3 / wav，A/B 循环反复听同一句，再录下来对比",
                 12, Theme.c(a, R.color.text_dim2)));
         entry.addView(U.spacer(a, 10));
-        TextView go = U.primaryButton(a, "打开音频跟读");
+        LinearLayout btns = U.row(a);
+        TextView go = U.primaryButton(a, "音频跟读");
         go.setOnClickListener(v -> {
             if (onAudio != null) onAudio.onOpenAudio();
         });
-        entry.addView(go);
+        btns.addView(go, U.weight(1));
+        btns.addView(U.hspacer(a, 8));
+        TextView goV = U.ghostButton(a, "视频跟读", Theme.c(a, R.color.accent));
+        goV.setOnClickListener(v -> {
+            if (onAudio != null) onAudio.onOpenVideo();
+        });
+        btns.addView(goV, U.weight(1));
+        entry.addView(btns);
         root.addView(entry);
 
         sv.addView(root);
