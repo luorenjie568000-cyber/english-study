@@ -193,20 +193,15 @@ public class SpeakView {
                 .show();
     }
 
-    /** 音频跟读：从音标页底部的按钮进入（用弹窗，避免再挤一个 tab）。 */
+    /**
+     * 音频跟读：独立页。
+     *
+     * 之前塞在 AlertDialog 里，ScrollView 测不出高度 → 弹窗空白。
+     * 改成独立 Activity 后内容才能正常显示（和 MediaActivity 同样处理）。
+     */
     private void openAudio() {
-        if (audio == null) audio = new AudioPanel(a);
-        LinearLayout box = U.col(a);
-        box.setPadding(U.px(a, 4), U.px(a, 4), U.px(a, 4), U.px(a, 4));
-        box.addView(audio.build(), new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                (int) (a.getResources().getDisplayMetrics().heightPixels * 0.7)));
-        new android.app.AlertDialog.Builder(a)
-                .setTitle("音频跟读")
-                .setView(box)
-                .setPositiveButton("关闭", (d, w) -> audio.stopPlayer())
-                .setOnDismissListener(d -> audio.stopPlayer())
-                .show();
+        a.startActivity(new android.content.Intent(a,
+                com.englishstudy.app.ui.AudioActivity.class));
     }
 
     /** 对话：直接复用 ChatView 的界面（学伴 Agent）。 */

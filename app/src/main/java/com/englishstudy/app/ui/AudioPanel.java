@@ -77,6 +77,7 @@ public class AudioPanel {
         root.addView(listBox);
 
         renderList();
+        sv.addView(root);
         return sv;
     }
 
@@ -350,7 +351,7 @@ public class AudioPanel {
             }
         }, 150);
 
-        if (sents == null) doSegmentQuiet();
+        if (sents == null || sents.isEmpty()) doSegmentQuiet();
     }
 
     private View sentRow(int i) {

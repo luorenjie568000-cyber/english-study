@@ -810,3 +810,53 @@ ASR 输出：`We are up to a statue of the students.`
 详情页新增「🤖 本地模型校对照（改同音错词）」按钮，可手动重跑；
 识别完成时自动跑一次（下载模型后不需要额外操作）。
 用户手动改过的句子（`edited=true`）不会被覆盖。
+
+### v6.2（2026-11-09 上午）：音频跟读修好（之前是空白页）
+
+## 症状
+点「音频跟读」只有标题和「关闭」，内容一片空白 —— 看起来像功能没做。
+
+## 两个真因（都不是"没做"，是显示不出来）
+
+### 1. `AudioPanel.build()` 忘了把 root 塞进 ScrollView
+```java
+ScrollView sv = new ScrollView(a);
+LinearLayout root = U.col(a);
+// ... 所有内容都 addView 到 root ...
+renderList();
+return sv;          // ← root 从来没被加进去，返回的是空壳
+```
+改成 `sv.addView(root)` 才有内容。
+**教训**：ScrollView 包 LinearLayout 的写法，最后一定要 addView。
+
+### 2. 塞在 AlertDialog 里测不出高度
+即使补了 addView，ScrollView 放进 `AlertDialog` 并给固定高度
+（`0.7 * screenHeight`）后，它拿不到正确的 measure spec，内容仍然塌成 0。
+`MediaPanel` 之前就是这个毛病，当时靠改独立 Activity 躲过去了。
+
+所以 `AudioPanel` 也改成独立页 `ui/AudioActivity.java`：
+- 正常窗口高度，ScrollView 能正确测量
+- 返回键天然回上一页
+- `onDestroy` 里释放 MediaPlayer，不会带着声音退到后台
+
+### 3. 自动切句没触发
+`if (sents == null) doSegmentQuiet();`
+但 `sents` 初始化是 `new ArrayList<>()`（空列表，不是 null），条件永远不成立。
+改成 `if (sents == null || sents.isEmpty())`。
+
+## 现在音频跟读的完整能力
+导入 → **自动切句 + 识别**（存 audio.json，下次不重算）
+→ 每句显示文本 + 时间码 + 时长
+→ 点句子：跳到该段并循环，A/B 自动设好
+→ `读`：本地 TTS 念这句
+→ `🎤`：跳到这句准备跟读
+→ 录完：**逐词对齐打分**（对/漏/多 + 语速 wpm + 停顿 + 建议）
+→ 可回放自己念的 vs 原声交替听
+
+实测（测试音频 7.9 秒）：
+```
+The weather is really nice today.        00:00 - 00:02  2.1s
+I want to go outside and take a walk.    00:02 - 00:05  2.9s
+After that I will read a book.           00:05 - 00:07  1.8s
+```
+三句全对（用的是 base.en）。

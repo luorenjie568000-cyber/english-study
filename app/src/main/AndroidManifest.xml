@@ -45,6 +45,12 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ui.AudioActivity"
+            android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".ui.MediaActivity"
             android:exported="false"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode"
