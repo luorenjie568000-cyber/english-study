@@ -220,12 +220,21 @@ public final class WritingChecker {
 
         matchRules(src, ERRORS, false, r);
         matchRules(src, STYLE, true, r);
-        checkArticles(src, r);
+        // 结构层：基于词性的语法分析（不是字符串匹配）
+        if (Pos.ready()) {
+            for (Grammar.Finding f : Grammar.check(src)) {
+                r.issues.add(new Issue(f.type, f.offset, f.length, f.snippet,
+                        f.message, f.hint, false));
+            }
+        } else {
+            // 词性索引没加载时退回旧规则，保证仍能工作
+            checkArticles(src, r);
+            checkPossessive(src, r);
+            checkAgreement(src, r);
+        }
         checkLowercaseI(src, r);
         checkSentenceCase(src, r);
         checkMidSentenceCaps(src, r);
-        checkPossessive(src, r);
-        checkAgreement(src, r);
         checkRepeats(src, r);
         checkPunctuation(src, r);
         checkSpelling(src, r);
@@ -310,13 +319,22 @@ public final class WritingChecker {
             boolean atSentenceStart = at == 0;
             if (!atSentenceStart && prevEnd >= 0) {
                 // 前一个非空字符是 . ! ? 或换行 → 句首
+                // 往前找第一个非空白字符
                 int k = prevEnd;
-                while (k < at && Character.isWhitespace(src.charAt(k))) k++;
-                if (k < at) {
+                boolean sawNewline = false;
+                while (k < at) {
                     char c = src.charAt(k);
-                    atSentenceStart = c == '.' || c == '!' || c == '?' || c == '\n';
+                    if (c == '\n') sawNewline = true;
+                    if (!Character.isWhitespace(c)) break;
+                    k++;
+                }
+                if (k < at) {
+                    // 中间有标点：只有 . ! ? 才算句首
+                    char c = src.charAt(k);
+                    atSentenceStart = c == '.' || c == '!' || c == '?';
                 } else {
-                    atSentenceStart = true;   // 只有空白，可能是行首
+                    // 中间只有空白（同一行）→ 不是句首；跨行 → 行首
+                    atSentenceStart = sawNewline;
                 }
             }
             prevEnd = m.end();
@@ -500,6 +518,12 @@ public final class WritingChecker {
 
             String cand = suggest(low);
             if (cand == null) continue;   // 找不到候选 → 不报（可能是新词/术语）
+            // 候选必须同词性，避免把名词改成动词
+            if (Pos.ready() && !Pos.tags(low).isEmpty()
+                    && !Pos.tags(cand).isEmpty()
+                    && Pos.tags(low).charAt(0) != Pos.tags(cand).charAt(0)) {
+                continue;
+            }
 
             r.issues.add(new Issue("拼写", mw.start(), w.length(), w,
                     "可能拼错了", "→ " + cand, false));

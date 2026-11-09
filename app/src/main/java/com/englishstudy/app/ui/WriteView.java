@@ -124,8 +124,44 @@ public class WriteView {
         resultBox.setPadding(0, U.px(a, 14), 0, 0);
         root.addView(resultBox);
 
+        // 引擎自检入口：让用户自己验证准确率，而不是只听我说
+        root.addView(U.spacer(a, U.px(a, 20)));
+        LinearLayout foot = U.card(a);
+        foot.addView(U.bold(a, "批改引擎自检", 12, Theme.c(a, R.color.text_dim)));
+        foot.addView(U.spacer(a, U.px(a, 4)));
+        foot.addView(U.tv(a, "用 " + com.englishstudy.app.engine.CheckerEval.caseCount()
+                + " 条已知答案的句子测一遍，显示精确率与召回率", 11,
+                Theme.c(a, R.color.text_dim2)));
+        TextView run = U.ghostButton(a, "跑一次", Theme.c(a, R.color.primary));
+        run.setOnClickListener(v -> showEval());
+        foot.addView(run);
+        root.addView(foot);
+
         sv.addView(root);
         return sv;
+    }
+
+    /** 跑引擎自检并弹窗显示结果。 */
+    private void showEval() {
+        new Thread(() -> {
+            String rep = com.englishstudy.app.engine.CheckerEval.run(a, true);
+            a.runOnUiThread(() -> {
+                TextView tv = U.tv(a, rep, 10, Theme.c(a, R.color.text));
+                tv.setTextIsSelectable(true);
+                tv.setTypeface(Typeface.MONOSPACE);
+                ScrollView sc = new ScrollView(a);
+                LinearLayout w = U.col(a);
+                int q = U.px(a, 14);
+                w.setPadding(q, q, q, q);
+                w.addView(tv);
+                sc.addView(w);
+                new android.app.AlertDialog.Builder(a)
+                        .setTitle("批改引擎自检")
+                        .setView(sc)
+                        .setPositiveButton("好", null)
+                        .show();
+            });
+        }, "eval").start();
     }
 
     private static final String SAMPLE =

@@ -216,6 +216,10 @@ public class App extends Application {
         final boolean st = selfTestEnabled();
         new Thread(() -> {
             Dict.load(this);
+            com.englishstudy.app.engine.Pos.load(this);
+            if (selfTestEnabled()) {
+                com.englishstudy.app.engine.CheckerEval.runAndSave(this);
+            }
             if (st) selfTest();
         }, "loader").start();
         if (st) new Thread(this::voiceSelfTest, "voice-diag").start();

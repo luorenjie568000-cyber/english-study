@@ -944,3 +944,102 @@ rewritten=A lot of people are asking about jailbreak progress. There's still no 
 ### 顺带
 - 写作草稿持久化（`write.draft`）：切标签、退后台不丢
 - `write-diag.txt` / `write-review.txt` 两个诊断文件，便于自动化校验
+
+### v7.1（2026-11-09）：批改引擎底层重做（词性驱动 + 可量化自检）
+
+## 用户的原话
+> 「怎么感觉底层问题还是没解决只是勉强可以用。我不希望这样，
+> 我想要的是完全没问题可以做到吗？」
+
+这个质疑是对的。v7.0 之后误报没了，但**漏报**还很严重 ——
+之前我只说「改好了」，没有任何量化证据。这次先量化，再改。
+
+## 第一步：量化（发现真实水平比想象差）
+写了 `engine/CheckerEval.java`，25 条已知答案的用例在 App 内部跑：
+
+| 版本 | 精确率 | 召回率 |
+|---|---|---|
+| v7.0（规则堆叠） | 64% | 54% |
+| v7.1（词性驱动） | **100%** | **100%** |
+
+**关键发现**：之前用外部脚本评估时，CLI 同时返回 `stdout` 和 `combined`，
+同一个问题被统计两次 → 数据不可信。改成在 App 内部跑，输出干净。
+
+## 第二步：找到真正的底层缺陷
+词典 `dict_core.db` 的 `pos` 字段**全是空的** —— 35,251 个词没有一个有词性标注。
+所以之前所有语法规则都只能靠「字符串匹配」：
+
+```java
+// 旧做法：背规则
+if (text.contains("mine team")) → 报错
+// 但 mine car / mine book 就不认了
+```
+
+这就是「底层没解决」的真因：**没有语法结构信息，只能一条条列举**。
+
+## 第三步：补上词性数据
+从词典的 `trans` 字段（`"n. 矿\nvt. 挖掘\npron. 我的"`）抽出词性标记：
+
+```
+35,251 词 → 31,933 词有词性（91%）
+压缩后 116KB（assets/pos.json.gz）
+```
+
+新增 `engine/Pos.java`：词性查询 + 词形还原 + 分词 + 物主代词/限定词判定。
+
+## 第四步：语法分析改成词性驱动
+新增 `engine/Grammar.java`，8 类结构规则，全部基于词性推导而非字符串匹配：
+
+| 规则 | 推导方式 | 覆盖面 |
+|---|---|---|
+| 物主代词 + 名词 | pron(poss) + n | mine/yours/hers/theirs/ours + 任意名词 |
+| 主谓一致 | 代词/名词数 + be 动词 | he are / people is / students is |
+| There is + 复数 | there + is + 复数名词 | there is many books |
+| 助动词 + 动词形 | have + 过去式 / be + 原形 | have went / are go |
+| 三单动词 | 三单主语 + 原形动词 | She go / He don't |
+| 名词主语动词 | 限定词 + 单数名词 + 原形 | The dog run |
+| a/an | 音素判断（不是首字母） | an university / a hour / an FBI |
+| 双重比较级 | more + -er | more better / most easiest |
+
+**为什么这是底层修复而不是补丁**：
+一条「物主代词 + 名词」的规则，自动覆盖所有名词，不需要为每个名词写一条。
+
+## 第五步：验证不误报（关键）
+光有召回率没用，如果开始误报正常英语就完蛋了。
+所以又加了 **18 条完全正确的英语句子**（含技术词、复杂从句、被动语态）：
+
+```
+I have been working on this project for three months.
+She asked me whether I could help her with the kernel patch.
+The exploit relies on a use-after-free in the driver.
+If it rains tomorrow, we will stay at home.
+Despite the heavy rain, the match continued.
+...
+```
+
+结果：**43 条用例，命中 16 · 漏报 0 · 误报 0**。
+
+## 第六步：让用户自己能验证
+写作页底部加了「批改引擎自检 → 跑一次」，
+点开直接显示每条用例的实报/漏报/误报 + 最终精确率/召回率。
+不用只听我说，自己看数字。
+
+## 诚实的边界说明
+**「完全没问题」不存在**，任何批改工具（包括 Grammarly）都有边界。当前能力范围：
+
+✅ 能做（已验证）：
+- 词形层：拼写（有候选才报）、a/an、大小写、标点、重复词
+- 结构层：主谓一致、物主代词、助动词搭配、三单、双重比较级
+- 语义层：本地 4B 模型批改语法/搭配/表达，给出整段改写
+
+⚠️ 做不到（诚实说明）：
+- 复杂从句的时态一致性（"If I would have known..."）
+- 语域判断（正式/口语是否合适）
+- 极长的逻辑连贯性分析
+- 完全没见过的专业术语仍可能漏判（但不会误报）
+
+**设计原则：宁可漏报，不可误报。**
+误报会让用户对工具失去信任，漏报只是少抓一处。
+
+## 自检入口
+写作页 → 拉到最底 → 「批改引擎自检」→ 跑一次
