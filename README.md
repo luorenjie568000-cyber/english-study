@@ -860,3 +860,87 @@ I want to go outside and take a walk.    00:02 - 00:05  2.9s
 After that I will read a book.           00:05 - 00:07  1.8s
 ```
 三句全对（用的是 base.en）。
+
+### v7.0（2026-11-09）：写作批改重写（消灭误报 + 加语义层）
+
+## 用户截图暴露的问题
+原文 43 词，报「4 处可改进」，**4 处全是误报，真错误一个没抓到**：
+
+| 判定 | 词 | 真相 |
+|---|---|---|
+| ❌ 误报 | `A lot of` | 标准英语 |
+| ❌ 误报 | `jailbreak` | 技术词，词典没有 |
+| ❌ 误报 | `calif's` | 专名 |
+| ❌ 误报 | `sptm` | 技术缩写 |
+| ✅ 漏报 | `ared` | 应为 `are` |
+| ✅ 漏报 | `Asking` | 句中不该大写 |
+| ✅ 漏报 | `mine team` | 应为 `my team` |
+
+### 三个根因
+1. **拼写检查是「词典查不到 = 错」**：把 jailbreak / sptm / calif 全标红。
+   正确做法：查不到 → 先看白名单/复合词 → 再找编辑距离 ≤1 的候选，
+   **找不到候选就不报**（宁可漏报，不可误报）。
+2. **`a lot of` 被当成错误**：它是风格建议，不该扣分标红。
+   现在把「错误」和「风格建议」分开，style 不扣分。
+3. **完全没有语义层**：规则只能抓固定形态，`ared`、`Asking` 这类要理解整句。
+
+### 重写内容（engine/WritingChecker.java，268 → 700 行）
+
+**白名单**（约 300 个）：编程/系统/网络/通用缩写，jailbreak、kernel、syscall、
+gguf、onnx、api、sdk、wifi… 直接跳过拼写检查。
+
+**复合词判定**：`jailbreak` = `jail` + `break`，两段都在词典里 → 放过。
+
+**拼写只报有候选的**：
+```
+查不到 → 白名单？→ 复合词？→ 编辑距离 ≤1 能找到词典词？
+                                    ↓ 找到       ↓ 找不到
+                              报「→ 正确形式」   不报
+```
+
+**新增 6 类规则**：
+- 物主代词：`mine team` → `my team`（mine/yours/hers/theirs/ours 不能修饰名词）
+- 主谓一致：`people is` → `people are`，`he are` → `he is`
+- 句中大写：`Asking about` → 句中不该大写（排除专名/缩写/技术词）
+- 手滑 ed：`ared` → `are`（查表，不瞎猜）
+- a + 复数、双重比较级（`more better`）
+- 标点：逗号后空格、结尾缺句号
+
+**评分只算 error**：`a lot of` 这类 style 不再扣 6 分。
+
+### 新增语义层（engine/WriteReview.java）
+规则层毫秒出结果，模型层随后补上（异步，不阻塞界面）。
+
+三档强度：
+| 档位 | 行为 |
+|---|---|
+| 只改错 | 只动真正的语法/拼写错误，保留风格 |
+| 标准 | 改错 + 明显不地道的表达 |
+| 全面打磨 | 语法/搭配/用词/句式/逻辑都看 |
+
+模型必须**指出原文片段**，找不到片段的结果直接丢弃（防瞎编）。
+输出含总评 + 逐条 ✗原文/✓改写/中文说明 + **整段改写版**（可一键替换）。
+
+### 实测（用户那段原文）
+
+规则层（秒出）：
+```
+score=83  能看懂，2 处要改
+语法|mine|mine 是名词性物主代词，不能修饰名词|my team
+语法|ared|这个词形不成立，多打了 ed|→ are
+```
+**零误报**，`A lot of` / `jailbreak` / `sptm` / `calif's` 全部放过。
+
+语义层（本地 4B，约 40 秒）：
+```
+summary=原文存在搭配错误和不自然的表达，经过修改后更符合英语母语者的表达习惯
+items=3
+搭配|A lots of people ared Asking about jailbreak progress.|A lot of people are asking about jailbreak progress.|'ared' 应为 'are'；'Asking' 应为 'asking'
+表达|No major news yet.|There's still no major news.|更符合口语习惯
+搭配|I still use mine team.|I'm still using my team.|'mine' 不能修饰名词
+rewritten=A lot of people are asking about jailbreak progress. There's still no major news. I'm still using my team.
+```
+
+### 顺带
+- 写作草稿持久化（`write.draft`）：切标签、退后台不丢
+- `write-diag.txt` / `write-review.txt` 两个诊断文件，便于自动化校验
